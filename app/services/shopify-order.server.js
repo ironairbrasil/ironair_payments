@@ -55,7 +55,7 @@ function buildCustomAttributes({
 }
 
 async function getOfflineSession() {
-  const shop = process.env.SHOPIFY_SHOP || "ironair-dev.myshopify.com";
+  const shop = process.env.SHOPIFY_SHOP || "iron-air-brasil-ltda.myshopify.com";
   const session = await prisma.session.findFirst({
     where: {
       shop,
