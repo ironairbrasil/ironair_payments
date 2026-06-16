@@ -2,7 +2,7 @@
 
 client_id = "4fee5522901d51189125697cd1d58c83"
 name = "ironair-payments"
-application_url = "https://example.com"
+application_url = "https://ironair-payments.vercel.app"
 embedded = true
 
 [access_scopes]
@@ -44,7 +44,11 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://ironair-payments.vercel.app/auth/callback",
+  "https://ironair-payments.vercel.app/auth/shopify/callback",
+  "https://ironair-payments.vercel.app/api/auth/callback"
+]
 
 [build]
 include_config_on_deploy = true
