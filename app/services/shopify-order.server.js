@@ -1,7 +1,7 @@
 import prisma from "../db.server";
 
 const SHOPIFY_API_VERSION = "2026-07";
-const TEST_PRODUCT_TITLE = "Teste Iron Air Sandbox";
+const TEST_PRODUCT_TITLE = "Iron Air Sandbox";
 const TEST_VARIANT_TITLE = "127V";
 const BASE_ORDER_TAGS = ["asaas", "iron-air-sandbox"];
 
