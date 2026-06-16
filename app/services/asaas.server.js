@@ -159,10 +159,8 @@ export async function handleAsaasWebhook(payload) {
       externalReference: payment.externalReference,
     });
 
-    if (payment.externalReference === "shopify_test_order") {
-      console.log("[SHOPIFY ORDER READY]");
-      await completeDraftOrderForAsaasPayment(payment.id);
-    }
+    console.log("[SHOPIFY ORDER READY]");
+    await completeDraftOrderForAsaasPayment(payment.id);
   }
 
   return result;
