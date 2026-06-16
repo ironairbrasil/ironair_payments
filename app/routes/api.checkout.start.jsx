@@ -1,1 +1,1 @@
-export { action } from "./api.checkout.test";
+export { action, loader } from "./api.checkout.test";

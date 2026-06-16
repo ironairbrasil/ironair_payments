@@ -49,6 +49,23 @@ function validateCheckoutPayload(payload) {
   }
 }
 
+export async function loader({ request }) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
+  }
+
+  return json(
+    {
+      success: false,
+      error: "Method not allowed. Use POST.",
+    },
+    { status: 405 },
+  );
+}
+
 export async function action({ request }) {
   if (request.method === "OPTIONS") {
     return new Response(null, {
