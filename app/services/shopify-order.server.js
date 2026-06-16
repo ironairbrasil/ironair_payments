@@ -4,6 +4,7 @@ const SHOPIFY_API_VERSION = "2026-07";
 const TEST_PRODUCT_TITLE = "Iron Air Sandbox";
 const TEST_VARIANT_TITLE = "127V";
 const BASE_ORDER_TAGS = ["asaas", "iron-air-sandbox"];
+const MAX_SHOPIFY_TAG_LENGTH = 40;
 
 function assertNoShopifyUserErrors(operation, userErrors) {
   if (userErrors?.length) {
@@ -14,9 +15,18 @@ function assertNoShopifyUserErrors(operation, userErrors) {
 }
 
 function buildOrderTags(asaasPaymentId) {
-  return asaasPaymentId
-    ? [...BASE_ORDER_TAGS, `asaas:${asaasPaymentId}`]
-    : BASE_ORDER_TAGS;
+  if (!asaasPaymentId) {
+    return BASE_ORDER_TAGS;
+  }
+
+  const asaasTag = `asaas:${asaasPaymentId}`;
+
+  return [
+    ...BASE_ORDER_TAGS,
+    asaasTag.length > MAX_SHOPIFY_TAG_LENGTH
+      ? asaasTag.slice(0, MAX_SHOPIFY_TAG_LENGTH)
+      : asaasTag,
+  ];
 }
 
 function buildOrderNote({ asaasPaymentId, externalReference, invoiceUrl }) {
