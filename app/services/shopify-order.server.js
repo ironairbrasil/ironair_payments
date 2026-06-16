@@ -200,13 +200,20 @@ export async function createDraftShopifyOrderForCheckout(payload) {
 export async function attachAsaasPaymentToDraftOrder({
   draftOrder,
   asaasPaymentId,
+  asaasCheckoutId,
   asaasCustomerId,
   value,
   externalReference,
   invoiceUrl,
+  checkoutUrl,
 }) {
-  const existingOrder = await prisma.asaasShopifyOrder.findUnique({
-    where: { asaasPaymentId },
+  const existingOrder = await prisma.asaasShopifyOrder.findFirst({
+    where: {
+      OR: [
+        { asaasPaymentId },
+        asaasCheckoutId ? { asaasCheckoutId } : undefined,
+      ].filter(Boolean),
+    },
   });
 
   if (existingOrder) {
@@ -256,12 +263,14 @@ export async function attachAsaasPaymentToDraftOrder({
   const createdOrder = await prisma.asaasShopifyOrder.create({
     data: {
       asaasPaymentId,
+      asaasCheckoutId,
       asaasCustomerId,
       draftOrderId: updatedDraftOrder.id,
       draftOrderName: updatedDraftOrder.name,
       externalReference,
       status: "PENDING",
       invoiceUrl,
+      asaasCheckoutUrl: checkoutUrl,
       value: Number(value),
     },
   });
@@ -276,14 +285,25 @@ export async function attachAsaasPaymentToDraftOrder({
   return createdOrder;
 }
 
-export async function completeDraftOrderForAsaasPayment(asaasPaymentId) {
-  const mappedOrder = await prisma.asaasShopifyOrder.findUnique({
-    where: { asaasPaymentId },
+export async function completeDraftOrderForAsaasPayment(
+  asaasPaymentId,
+  { asaasCheckoutId, externalReference } = {},
+) {
+  const mappedOrder = await prisma.asaasShopifyOrder.findFirst({
+    where: {
+      OR: [
+        asaasPaymentId ? { asaasPaymentId } : undefined,
+        asaasCheckoutId ? { asaasCheckoutId } : undefined,
+        externalReference ? { externalReference } : undefined,
+      ].filter(Boolean),
+    },
   });
 
   if (!mappedOrder) {
     console.warn("[SHOPIFY DRAFT ORDER MISSING]", {
       payment: asaasPaymentId,
+      checkout: asaasCheckoutId,
+      externalReference,
     });
 
     return null;
@@ -348,7 +368,7 @@ export async function completeDraftOrderForAsaasPayment(asaasPaymentId) {
   }
 
   const updatedOrder = await prisma.asaasShopifyOrder.update({
-    where: { asaasPaymentId },
+    where: { id: mappedOrder.id },
     data: {
       status: "PAID",
       shopifyOrderId: order.id,

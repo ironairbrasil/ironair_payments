@@ -11,12 +11,23 @@ const SUPPORTED_PAYMENT_WEBHOOK_EVENTS = new Set([
   "PAYMENT_CHARGEBACK_REQUESTED",
   "PAYMENT_CHARGEBACK_DISPUTE",
   "PAYMENT_AWAITING_CHARGEBACK_REVERSAL",
+  "CHECKOUT_CREATED",
+  "CHECKOUT_CANCELED",
+  "CHECKOUT_EXPIRED",
+  "CHECKOUT_PAID",
 ]);
 
 const APPROVED_PAYMENT_EVENTS = new Set([
   "PAYMENT_RECEIVED",
   "PAYMENT_CONFIRMED",
+  "CHECKOUT_PAID",
 ]);
+
+const CHECKOUT_CALLBACK_URLS = {
+  successUrl: "https://ironair-payments.vercel.app/checkout/success",
+  cancelUrl: "https://ironair-payments.vercel.app/checkout/error",
+  expiredUrl: "https://ironair-payments.vercel.app/checkout/error",
+};
 
 function formatAsaasError(data) {
   if (typeof data === "string") {
@@ -72,6 +83,18 @@ async function requestAsaas(path, options = {}) {
   return data;
 }
 
+function getCheckoutUrl(checkout) {
+  if (checkout?.link) {
+    return checkout.link;
+  }
+
+  const { env } = getAsaasConfig();
+  const checkoutBaseUrl =
+    env === "production" ? "https://asaas.com" : "https://sandbox.asaas.com";
+
+  return `${checkoutBaseUrl}/checkoutSession/show?id=${checkout.id}`;
+}
+
 export async function findOrCreateAsaasCustomer({ name, email, cpfCnpj }) {
   const query = new URLSearchParams({ cpfCnpj });
   const customers = await requestAsaas(`/customers?${query.toString()}`);
@@ -109,23 +132,100 @@ export async function createAsaasPixPayment({
   });
 }
 
-export async function createAsaasCheckoutPayment(payload) {
-  const customer = await findOrCreateAsaasCustomer(payload);
-  const payment = await createAsaasPixPayment({
-    customer: customer.id,
-    value: payload.value,
-    externalReference: payload.externalReference,
+export async function createAsaasCheckout({
+  customerId,
+  value,
+  description,
+  externalReference,
+  billingTypes = ["PIX", "CREDIT_CARD", "BOLETO"],
+}) {
+  const checkout = await requestAsaas("/checkouts", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: customerId,
+      billingTypes,
+      chargeTypes: ["DETACHED"],
+      minutesToExpire: 1440,
+      externalReference,
+      callback: CHECKOUT_CALLBACK_URLS,
+      items: [
+        {
+          name: "Iron Air Sandbox",
+          description,
+          quantity: 1,
+          value,
+        },
+      ],
+    }),
   });
 
   return {
-    customer,
-    payment,
+    ...checkout,
+    checkoutUrl: getCheckoutUrl(checkout),
   };
+}
+
+export async function createAsaasCheckoutPayment(payload) {
+  const customer = await findOrCreateAsaasCustomer(payload);
+
+  try {
+    let checkout;
+
+    try {
+      checkout = await createAsaasCheckout({
+        customerId: customer.id,
+        value: payload.value,
+        description: "Teste Iron Air Sandbox",
+        externalReference: payload.externalReference,
+      });
+    } catch (error) {
+      console.warn("[asaas] Hosted checkout with boleto unavailable, retrying.", {
+        error: error instanceof Error ? error.message : String(error),
+        externalReference: payload.externalReference,
+      });
+
+      checkout = await createAsaasCheckout({
+        customerId: customer.id,
+        value: payload.value,
+        description: "Teste Iron Air Sandbox",
+        externalReference: payload.externalReference,
+        billingTypes: ["PIX", "CREDIT_CARD"],
+      });
+    }
+
+    return {
+      customer,
+      checkout,
+      payment: null,
+      checkoutUrl: checkout.checkoutUrl,
+      usedCheckoutFallback: false,
+    };
+  } catch (error) {
+    console.warn("[asaas] Hosted checkout unavailable, using invoice fallback.", {
+      error: error instanceof Error ? error.message : String(error),
+      externalReference: payload.externalReference,
+    });
+
+    const payment = await createAsaasPixPayment({
+      customer: customer.id,
+      value: payload.value,
+      externalReference: payload.externalReference,
+    });
+
+    return {
+      customer,
+      payment,
+      checkout: null,
+      checkoutUrl: payment.invoiceUrl,
+      usedCheckoutFallback: true,
+    };
+  }
 }
 
 export async function handleAsaasWebhook(payload) {
   const event = payload?.event;
   const payment = payload?.payment;
+  const checkout = payload?.checkout;
 
   if (!event || typeof event !== "string") {
     throw new Error("Invalid Asaas webhook payload: missing event.");
@@ -135,32 +235,37 @@ export async function handleAsaasWebhook(payload) {
     throw new Error(`Unsupported Asaas webhook event: ${event}.`);
   }
 
-  if (!payment || typeof payment !== "object") {
-    throw new Error("Invalid Asaas webhook payload: missing payment.");
+  if (!payment && !checkout) {
+    throw new Error("Invalid Asaas webhook payload: missing payment or checkout.");
   }
 
   const result = {
     ok: true,
     event,
-    paymentId: payment.id,
-    status: payment.status,
-    value: payment.value,
-    customer: payment.customer,
-    externalReference: payment.externalReference,
+    paymentId: payment?.id,
+    checkoutId: checkout?.id,
+    status: payment?.status ?? checkout?.status,
+    value: payment?.value,
+    customer: payment?.customer ?? checkout?.customer,
+    externalReference: payment?.externalReference ?? checkout?.externalReference,
   };
 
   if (APPROVED_PAYMENT_EVENTS.has(event)) {
     console.log("[asaas] Approved payment webhook:", {
-      paymentId: payment.id,
-      status: payment.status,
-      value: payment.value,
-      customer: payment.customer,
-      billingType: payment.billingType,
-      externalReference: payment.externalReference,
+      paymentId: payment?.id,
+      checkoutId: checkout?.id,
+      status: payment?.status ?? checkout?.status,
+      value: payment?.value,
+      customer: payment?.customer ?? checkout?.customer,
+      billingType: payment?.billingType,
+      externalReference: payment?.externalReference ?? checkout?.externalReference,
     });
 
     console.log("[SHOPIFY ORDER READY]");
-    await completeDraftOrderForAsaasPayment(payment.id);
+    await completeDraftOrderForAsaasPayment(payment?.id, {
+      asaasCheckoutId: checkout?.id,
+      externalReference: payment?.externalReference ?? checkout?.externalReference,
+    });
   }
 
   return result;

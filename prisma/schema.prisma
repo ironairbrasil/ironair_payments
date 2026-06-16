@@ -38,6 +38,7 @@ model Session {
 model AsaasShopifyOrder {
   id                Int      @id @default(autoincrement())
   asaasPaymentId    String   @unique
+  asaasCheckoutId   String?  @unique
   asaasCustomerId   String?
   draftOrderId      String?  @unique
   draftOrderName    String?
@@ -46,6 +47,7 @@ model AsaasShopifyOrder {
   externalReference String
   status            String   @default("PENDING")
   invoiceUrl        String?
+  asaasCheckoutUrl  String?
   value             Float
   paidAt            DateTime?
   createdAt         DateTime @default(now())

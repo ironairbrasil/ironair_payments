@@ -61,21 +61,32 @@ export async function action({ request }) {
 
   try {
     const draftOrder = await createDraftShopifyOrderForCheckout(payload);
-    const { customer, payment } = await createAsaasCheckoutPayment(payload);
+    const { customer, payment, checkout, checkoutUrl, usedCheckoutFallback } =
+      await createAsaasCheckoutPayment(payload);
+    const asaasReferenceId = checkout?.id ?? payment.id;
+    const externalReference =
+      checkout?.externalReference ??
+      payment?.externalReference ??
+      payload.externalReference;
     const shopifyDraftOrder = await attachAsaasPaymentToDraftOrder({
       draftOrder,
-      asaasPaymentId: payment.id,
+      asaasPaymentId: asaasReferenceId,
+      asaasCheckoutId: checkout?.id,
       asaasCustomerId: customer.id,
       value: payload.value,
-      externalReference: payment.externalReference,
-      invoiceUrl: payment.invoiceUrl,
+      externalReference,
+      invoiceUrl: checkoutUrl,
+      checkoutUrl: checkout?.checkoutUrl,
     });
 
     return Response.json({
       success: true,
-      paymentId: payment.id,
-      invoiceUrl: payment.invoiceUrl,
-      externalReference: payment.externalReference,
+      paymentId: payment?.id ?? null,
+      checkoutId: checkout?.id ?? null,
+      checkoutUrl,
+      invoiceUrl: usedCheckoutFallback ? payment.invoiceUrl : null,
+      usedCheckoutFallback,
+      externalReference,
       draftOrderId: shopifyDraftOrder.draftOrderId,
       draftOrderName: shopifyDraftOrder.draftOrderName,
       shopifyOrderId: shopifyDraftOrder.shopifyOrderId,
