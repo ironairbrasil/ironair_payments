@@ -162,6 +162,7 @@ export async function createDraftShopifyOrderForCheckout(payload) {
         email: payload.email,
         presentmentCurrencyCode: "BRL",
         sourceName: "asaas_sandbox",
+        taxExempt: true,
         visibleToCustomer: false,
         tags: buildOrderTags(),
         note: buildOrderNote({
