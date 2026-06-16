@@ -55,19 +55,30 @@ function buildCustomAttributes({
 }
 
 async function getOfflineSession() {
-  const shop = process.env.SHOPIFY_SHOP || "iron-air-brasil-ltda.myshopify.com";
+  const liveShop = "iron-air-brasil-ltda.myshopify.com";
+  const configuredShop = process.env.SHOPIFY_SHOP || liveShop;
   const session = await prisma.session.findFirst({
     where: {
-      shop,
+      shop: liveShop,
       isOnline: false,
     },
   });
+  const fallbackSession =
+    session ||
+    (configuredShop === liveShop
+      ? null
+      : await prisma.session.findFirst({
+          where: {
+            shop: configuredShop,
+            isOnline: false,
+          },
+        }));
 
-  if (!session?.accessToken) {
-    throw new Error(`No offline Shopify session found for ${shop}.`);
+  if (!fallbackSession?.accessToken) {
+    throw new Error(`No offline Shopify session found for ${liveShop}.`);
   }
 
-  return session;
+  return fallbackSession;
 }
 
 async function shopifyGraphql(query, variables = {}) {
