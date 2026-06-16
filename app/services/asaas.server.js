@@ -137,26 +137,32 @@ export async function createAsaasCheckout({
   value,
   description,
   externalReference,
-  billingTypes = ["PIX", "CREDIT_CARD", "BOLETO"],
+  billingTypes = ["PIX", "CREDIT_CARD"],
+  useRegisteredCustomer = false,
 }) {
+  const checkoutPayload = {
+    billingTypes,
+    chargeTypes: ["DETACHED"],
+    minutesToExpire: 1440,
+    externalReference,
+    callback: CHECKOUT_CALLBACK_URLS,
+    items: [
+      {
+        name: "Iron Air Sandbox",
+        description,
+        quantity: 1,
+        value,
+      },
+    ],
+  };
+
+  if (customerId && useRegisteredCustomer) {
+    checkoutPayload.customer = customerId;
+  }
+
   const checkout = await requestAsaas("/checkouts", {
     method: "POST",
-    body: JSON.stringify({
-      customer: customerId,
-      billingTypes,
-      chargeTypes: ["DETACHED"],
-      minutesToExpire: 1440,
-      externalReference,
-      callback: CHECKOUT_CALLBACK_URLS,
-      items: [
-        {
-          name: "Iron Air Sandbox",
-          description,
-          quantity: 1,
-          value,
-        },
-      ],
-    }),
+    body: JSON.stringify(checkoutPayload),
   });
 
   return {
@@ -177,6 +183,7 @@ export async function createAsaasCheckoutPayment(payload) {
         value: payload.value,
         description: "Teste Iron Air Sandbox",
         externalReference: payload.externalReference,
+        billingTypes: ["PIX", "CREDIT_CARD", "BOLETO"],
       });
     } catch (error) {
       console.warn("[asaas] Hosted checkout with boleto unavailable, retrying.", {
