@@ -12,6 +12,22 @@ const DEFAULT_CHECKOUT_PAYLOAD = {
   externalReference: "shopify_test_order",
 };
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "https://ironair.com.br",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Accept",
+};
+
+function json(data, init = {}) {
+  return Response.json(data, {
+    ...init,
+    headers: {
+      ...CORS_HEADERS,
+      ...(init.headers || {}),
+    },
+  });
+}
+
 function normalizeCheckoutPayload(payload) {
   return {
     ...DEFAULT_CHECKOUT_PAYLOAD,
@@ -34,8 +50,15 @@ function validateCheckoutPayload(payload) {
 }
 
 export async function action({ request }) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
+  }
+
   if (request.method !== "POST") {
-    return Response.json(
+    return json(
       {
         success: false,
         error: "Method not allowed. Use POST.",
@@ -50,7 +73,7 @@ export async function action({ request }) {
     payload = normalizeCheckoutPayload(await request.json());
     validateCheckoutPayload(payload);
   } catch (error) {
-    return Response.json(
+    return json(
       {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -79,7 +102,7 @@ export async function action({ request }) {
       checkoutUrl: checkout?.checkoutUrl,
     });
 
-    return Response.json({
+    return json({
       success: true,
       paymentId: payment?.id ?? null,
       checkoutId: checkout?.id ?? null,
@@ -93,7 +116,7 @@ export async function action({ request }) {
       shopifyOrderName: shopifyDraftOrder.shopifyOrderName,
     });
   } catch (error) {
-    return Response.json(
+    return json(
       {
         success: false,
         error: error instanceof Error ? error.message : String(error),

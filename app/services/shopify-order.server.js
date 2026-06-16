@@ -133,8 +133,61 @@ async function getTestVariant() {
 }
 
 export async function createDraftShopifyOrderForCheckout(payload) {
-  const { variant } = await getTestVariant();
+  const cartItems = Array.isArray(payload.items)
+    ? payload.items.filter((item) => item?.variantGid || item?.variantId)
+    : [];
+  const { variant } = cartItems.length ? { variant: null } : await getTestVariant();
   const amount = Number(payload.value).toFixed(2);
+  const lineItems = cartItems.length
+    ? cartItems.map((item) => {
+        const quantity = Math.max(1, Number(item.quantity) || 1);
+        const variantId =
+          item.variantGid ||
+          `gid://shopify/ProductVariant/${String(item.variantId).replace(/\D/g, "")}`;
+        const unitAmount = Number(item.price || item.linePrice / quantity || 0);
+
+        return {
+          variantId,
+          quantity,
+          ...(Number.isFinite(unitAmount) && unitAmount > 0
+            ? {
+                originalUnitPriceWithCurrency: {
+                  amount: unitAmount.toFixed(2),
+                  currencyCode: "BRL",
+                },
+              }
+            : {}),
+          customAttributes: [
+            {
+              key: "externalReference",
+              value: payload.externalReference,
+            },
+            item.sku
+              ? {
+                  key: "sku",
+                  value: String(item.sku),
+                }
+              : null,
+          ].filter(Boolean),
+        };
+      })
+    : [
+        {
+          variantId: variant.id,
+          quantity: 1,
+          sku: variant.sku,
+          originalUnitPriceWithCurrency: {
+            amount,
+            currencyCode: "BRL",
+          },
+          customAttributes: [
+            {
+              key: "externalReference",
+              value: payload.externalReference,
+            },
+          ],
+        },
+      ];
 
   const data = await shopifyGraphql(
     `#graphql
@@ -171,23 +224,7 @@ export async function createDraftShopifyOrderForCheckout(payload) {
         customAttributes: buildCustomAttributes({
           externalReference: payload.externalReference,
         }),
-        lineItems: [
-          {
-            variantId: variant.id,
-            quantity: 1,
-            sku: variant.sku,
-            originalUnitPriceWithCurrency: {
-              amount,
-              currencyCode: "BRL",
-            },
-            customAttributes: [
-              {
-                key: "externalReference",
-                value: payload.externalReference,
-              },
-            ],
-          },
-        ],
+        lineItems,
       },
     },
   );
