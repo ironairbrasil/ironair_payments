@@ -70,6 +70,61 @@ function buildCustomAttributes({
   ].filter(Boolean);
 }
 
+function splitCustomerName(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+
+  if (!parts.length) {
+    return {};
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" ") || undefined,
+  };
+}
+
+function buildShopifyMailingAddress(asaasCustomer) {
+  if (!asaasCustomer) {
+    return null;
+  }
+
+  const customerName = splitCustomerName(asaasCustomer.name);
+  const address = {
+    ...customerName,
+    address1: [asaasCustomer.address, asaasCustomer.addressNumber]
+      .filter(Boolean)
+      .join(", "),
+    address2: asaasCustomer.complement || undefined,
+    city: asaasCustomer.cityName || undefined,
+    province: asaasCustomer.state || undefined,
+    zip: asaasCustomer.postalCode || undefined,
+    country: asaasCustomer.country || "Brasil",
+    phone: asaasCustomer.mobilePhone || asaasCustomer.phone || undefined,
+    company: asaasCustomer.company || undefined,
+  };
+
+  return Object.fromEntries(
+    Object.entries(address).filter(([, value]) => Boolean(value)),
+  );
+}
+
+function buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer) {
+  return [
+    asaasCustomerId
+      ? { key: "asaas_customer_id", value: asaasCustomerId }
+      : null,
+    asaasCustomer?.cpfCnpj
+      ? { key: "asaas_customer_cpf_cnpj", value: asaasCustomer.cpfCnpj }
+      : null,
+    asaasCustomer?.phone || asaasCustomer?.mobilePhone
+      ? {
+          key: "asaas_customer_phone",
+          value: asaasCustomer.mobilePhone || asaasCustomer.phone,
+        }
+      : null,
+  ].filter(Boolean);
+}
+
 function getConfiguredShop() {
   const configuredShop = process.env.SHOPIFY_SHOP?.trim();
   const shop =
@@ -449,7 +504,7 @@ export async function markDraftOrderAsFailed({
 
 export async function completeDraftOrderForAsaasPayment(
   asaasPaymentId,
-  { asaasCheckoutId, externalReference } = {},
+  { asaasCheckoutId, asaasCustomerId, asaasCustomer, externalReference } = {},
 ) {
   const mappedOrder = await prisma.asaasShopifyOrder.findFirst({
     where: {
@@ -482,6 +537,51 @@ export async function completeDraftOrderForAsaasPayment(
     });
 
     return mappedOrder;
+  }
+
+  const customerAddress = buildShopifyMailingAddress(asaasCustomer);
+
+  if (asaasCustomerId || asaasCustomer?.email || customerAddress) {
+    const customerData = await shopifyGraphql(
+      `#graphql
+        mutation updateDraftOrderCustomer($id: ID!, $input: DraftOrderInput!) {
+          draftOrderUpdate(id: $id, input: $input) {
+            draftOrder {
+              id
+              name
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }`,
+      {
+        id: mappedOrder.draftOrderId,
+        input: {
+          ...(asaasCustomer?.email ? { email: asaasCustomer.email } : {}),
+          ...(customerAddress
+            ? {
+                billingAddress: customerAddress,
+                shippingAddress: customerAddress,
+              }
+            : {}),
+          customAttributes: [
+            ...buildCustomAttributes({
+              asaasPaymentId: mappedOrder.asaasPaymentId,
+              externalReference: mappedOrder.externalReference,
+              invoiceUrl: mappedOrder.invoiceUrl,
+            }),
+            ...buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer),
+          ],
+        },
+      },
+    );
+
+    assertNoShopifyUserErrors(
+      "draftOrderUpdate customer",
+      customerData.draftOrderUpdate.userErrors,
+    );
   }
 
   const data = await shopifyGraphql(
@@ -533,6 +633,7 @@ export async function completeDraftOrderForAsaasPayment(
     where: { id: mappedOrder.id },
     data: {
       status: "PAID",
+      asaasCustomerId: asaasCustomerId || mappedOrder.asaasCustomerId,
       shopifyOrderId: order.id,
       shopifyOrderName: order.name,
       paidAt: new Date(),

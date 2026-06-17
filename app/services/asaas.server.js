@@ -211,6 +211,14 @@ export async function createAsaasCheckoutPayment(payload) {
   }
 }
 
+export async function getAsaasCustomer(customerId) {
+  if (!customerId) {
+    return null;
+  }
+
+  return requestAsaas(`/customers/${customerId}`);
+}
+
 export async function handleAsaasWebhook(payload) {
   const event = payload?.event;
   const payment = payload?.payment;
@@ -240,12 +248,17 @@ export async function handleAsaasWebhook(payload) {
   };
 
   if (APPROVED_PAYMENT_EVENTS.has(event)) {
+    const asaasCustomerId = payment?.customer ?? checkout?.customer;
+    const asaasCustomer = asaasCustomerId
+      ? await getAsaasCustomer(asaasCustomerId)
+      : null;
+
     console.log("[asaas] Approved payment webhook:", {
       paymentId: payment?.id,
       checkoutId: checkout?.id,
       status: payment?.status ?? checkout?.status,
       value: payment?.value,
-      customer: payment?.customer ?? checkout?.customer,
+      customer: asaasCustomerId,
       billingType: payment?.billingType,
       externalReference: payment?.externalReference ?? checkout?.externalReference,
     });
@@ -253,6 +266,8 @@ export async function handleAsaasWebhook(payload) {
     console.log("[SHOPIFY ORDER READY]");
     await completeDraftOrderForAsaasPayment(payment?.id, {
       asaasCheckoutId: checkout?.id,
+      asaasCustomerId,
+      asaasCustomer,
       externalReference: payment?.externalReference ?? checkout?.externalReference,
     });
   }
