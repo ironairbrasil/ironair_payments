@@ -22,6 +22,8 @@ const APPROVED_PAYMENT_EVENTS = new Set([
   "PAYMENT_CONFIRMED",
   "CHECKOUT_PAID",
 ]);
+const ASAAS_ITEM_NAME = "Iron Air";
+const MAX_ASAAS_DESCRIPTION_LENGTH = 500;
 
 function formatAsaasError(data) {
   if (typeof data === "string") {
@@ -62,6 +64,12 @@ function getAsaasDescription() {
   return getAsaasConfig().env === "production"
     ? "Iron Air payment"
     : "Iron Air Sandbox";
+}
+
+function truncateAsaasText(value, maxLength) {
+  const text = String(value || "").trim();
+
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
 }
 
 function assertAsaasApiKey(apiKey) {
@@ -147,8 +155,18 @@ export async function createAsaasCheckoutPayment(payload) {
     }
 
     return {
-      name: String(item.productHandle || getAsaasDescription()),
-      description: item.variantGid || item.variantId || getAsaasDescription(),
+      name: ASAAS_ITEM_NAME,
+      description: truncateAsaasText(
+        [
+          item.productHandle ? `Produto: ${item.productHandle}` : null,
+          item.variantGid || item.variantId
+            ? `Variante: ${item.variantGid || item.variantId}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" | ") || getAsaasDescription(),
+        MAX_ASAAS_DESCRIPTION_LENGTH,
+      ),
       quantity,
       value,
     };
