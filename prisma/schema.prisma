@@ -48,8 +48,11 @@ model AsaasShopifyOrder {
   status            String   @default("PENDING")
   invoiceUrl        String?
   asaasCheckoutUrl  String?
+  failureReason     String?
   value             Float
   paidAt            DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@unique([externalReference])
 }

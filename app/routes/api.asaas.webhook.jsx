@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import { getAsaasConfig } from "../config/asaas.server";
 import { handleAsaasWebhook } from "../services/asaas.server";
 
@@ -19,7 +21,7 @@ function isWebhookTokenValid(request) {
   const { webhookToken } = getAsaasConfig();
 
   if (!webhookToken) {
-    return true;
+    return process.env.NODE_ENV !== "production";
   }
 
   return getWebhookHeaderToken(request) === webhookToken;
@@ -42,6 +44,16 @@ export async function action({ request }) {
         error: "Method not allowed. Use POST.",
       },
       { status: 405 },
+    );
+  }
+
+  if (process.env.NODE_ENV === "production" && !getAsaasConfig().webhookToken) {
+    return Response.json(
+      {
+        success: false,
+        error: "ASAAS_WEBHOOK_TOKEN is not configured.",
+      },
+      { status: 500 },
     );
   }
 

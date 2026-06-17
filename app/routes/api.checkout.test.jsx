@@ -1,8 +1,8 @@
-import { createAsaasCheckoutPayment } from "../services/asaas.server";
 import {
-  attachAsaasPaymentToDraftOrder,
-  createDraftShopifyOrderForCheckout,
-} from "../services/shopify-order.server";
+  CHECKOUT_CORS_HEADERS as CORS_HEADERS,
+  checkoutJson as json,
+  startCheckoutFlow,
+} from "../services/checkout-flow.server";
 
 const DEFAULT_CHECKOUT_PAYLOAD = {
   name: "Cliente Teste",
@@ -12,27 +12,21 @@ const DEFAULT_CHECKOUT_PAYLOAD = {
   externalReference: "shopify_test_order",
 };
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "https://ironair.com.br",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Accept",
-};
-
-function json(data, init = {}) {
-  return Response.json(data, {
-    ...init,
-    headers: {
-      ...CORS_HEADERS,
-      ...(init.headers || {}),
-    },
-  });
-}
-
 function normalizeCheckoutPayload(payload) {
+  const value = Number(payload?.value ?? DEFAULT_CHECKOUT_PAYLOAD.value);
+
   return {
     ...DEFAULT_CHECKOUT_PAYLOAD,
     ...payload,
-    value: Number(payload?.value ?? DEFAULT_CHECKOUT_PAYLOAD.value),
+    value,
+    items: payload?.items || [
+      {
+        productHandle: "iron-air-sandbox",
+        quantity: 1,
+        price: value,
+        linePrice: value,
+      },
+    ],
   };
 }
 
@@ -100,38 +94,7 @@ export async function action({ request }) {
   }
 
   try {
-    const draftOrder = await createDraftShopifyOrderForCheckout(payload);
-    const { customer, payment, checkout, checkoutUrl, usedCheckoutFallback } =
-      await createAsaasCheckoutPayment(payload);
-    const asaasReferenceId = checkout?.id ?? payment.id;
-    const externalReference =
-      checkout?.externalReference ??
-      payment?.externalReference ??
-      payload.externalReference;
-    const shopifyDraftOrder = await attachAsaasPaymentToDraftOrder({
-      draftOrder,
-      asaasPaymentId: asaasReferenceId,
-      asaasCheckoutId: checkout?.id,
-      asaasCustomerId: customer.id,
-      value: payload.value,
-      externalReference,
-      invoiceUrl: checkoutUrl,
-      checkoutUrl: checkout?.checkoutUrl,
-    });
-
-    return json({
-      success: true,
-      paymentId: payment?.id ?? null,
-      checkoutId: checkout?.id ?? null,
-      checkoutUrl,
-      invoiceUrl: usedCheckoutFallback ? payment.invoiceUrl : null,
-      usedCheckoutFallback,
-      externalReference,
-      draftOrderId: shopifyDraftOrder.draftOrderId,
-      draftOrderName: shopifyDraftOrder.draftOrderName,
-      shopifyOrderId: shopifyDraftOrder.shopifyOrderId,
-      shopifyOrderName: shopifyDraftOrder.shopifyOrderName,
-    });
+    return json(await startCheckoutFlow(payload, { allowTestFallback: true }));
   } catch (error) {
     return json(
       {

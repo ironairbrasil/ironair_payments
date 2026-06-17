@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 
 const VALID_ASAAS_ENVS = new Set(["sandbox", "production"]);
-const ASAAS_ENV_KEYS = ["ASAAS_ENV", "ASAAS_API_KEY", "ASAAS_WEBHOOK_TOKEN"];
+const ASAAS_ENV_KEYS = [
+  "APP_URL",
+  "ASAAS_ENV",
+  "ASAAS_API_KEY",
+  "ASAAS_WEBHOOK_TOKEN",
+];
 
 try {
   const localEnv = parseEnv(readFileSync(".env", "utf8"));
@@ -20,9 +25,15 @@ try {
 
 export function getAsaasConfig() {
   const env = process.env.ASAAS_ENV || "sandbox";
+  const appUrl = process.env.APP_URL?.replace(/\/+$/, "");
+
+  if (env === "production" && !appUrl) {
+    throw new Error("APP_URL is not configured.");
+  }
 
   return {
     env,
+    appUrl,
     apiKey: process.env.ASAAS_API_KEY,
     webhookToken: process.env.ASAAS_WEBHOOK_TOKEN,
     baseUrl:
@@ -33,7 +44,7 @@ export function getAsaasConfig() {
 }
 
 export function validateAsaasStartupConfig() {
-  const { apiKey, env } = getAsaasConfig();
+  const { apiKey, appUrl, env, webhookToken } = getAsaasConfig();
 
   if (!apiKey) {
     console.warn("[asaas] ASAAS_API_KEY is not configured.");
@@ -43,5 +54,13 @@ export function validateAsaasStartupConfig() {
     console.warn(
       `[asaas] ASAAS_ENV "${env}" is invalid. Use "sandbox" or "production".`,
     );
+  }
+
+  if (env === "production" && !appUrl) {
+    console.warn("[asaas] APP_URL is not configured.");
+  }
+
+  if (env === "production" && !webhookToken) {
+    console.warn("[asaas] ASAAS_WEBHOOK_TOKEN is not configured.");
   }
 }

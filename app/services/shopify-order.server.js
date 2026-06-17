@@ -1,10 +1,11 @@
 import prisma from "../db.server";
+import { getAsaasConfig } from "../config/asaas.server";
+import { unauthenticated } from "../shopify.server";
 
-const SHOPIFY_API_VERSION = "2026-07";
 const TEST_PRODUCT_TITLE = "Iron Air Sandbox";
 const TEST_VARIANT_TITLE = "127V";
-const BASE_ORDER_TAGS = ["asaas", "iron-air-sandbox"];
 const MAX_SHOPIFY_TAG_LENGTH = 40;
+const DEV_SHOPIFY_SHOP = "ironair-dev.myshopify.com";
 
 function assertNoShopifyUserErrors(operation, userErrors) {
   if (userErrors?.length) {
@@ -15,14 +16,20 @@ function assertNoShopifyUserErrors(operation, userErrors) {
 }
 
 function buildOrderTags(asaasPaymentId) {
+  const environmentTag =
+    getAsaasConfig().env === "production"
+      ? "iron-air-production"
+      : "iron-air-sandbox";
+  const baseOrderTags = ["asaas", environmentTag];
+
   if (!asaasPaymentId) {
-    return BASE_ORDER_TAGS;
+    return baseOrderTags;
   }
 
   const asaasTag = `asaas:${asaasPaymentId}`;
 
   return [
-    ...BASE_ORDER_TAGS,
+    ...baseOrderTags,
     asaasTag.length > MAX_SHOPIFY_TAG_LENGTH
       ? asaasTag.slice(0, MAX_SHOPIFY_TAG_LENGTH)
       : asaasTag,
@@ -30,14 +37,23 @@ function buildOrderTags(asaasPaymentId) {
 }
 
 function buildOrderNote({ asaasPaymentId, externalReference, invoiceUrl }) {
+  const environmentName =
+    getAsaasConfig().env === "production" ? "production" : "sandbox";
+
   return [
-    "Iron Air Sandbox payment via Asaas.",
+    `Iron Air ${environmentName} payment via Asaas.`,
     asaasPaymentId ? `Asaas payment: ${asaasPaymentId}` : null,
     `External reference: ${externalReference}`,
     invoiceUrl ? `Invoice URL: ${invoiceUrl}` : null,
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function getSourceName() {
+  return getAsaasConfig().env === "production"
+    ? "asaas_production"
+    : "asaas_sandbox";
 }
 
 function buildCustomAttributes({
@@ -54,46 +70,22 @@ function buildCustomAttributes({
   ].filter(Boolean);
 }
 
-async function getOfflineSession() {
-  const liveShop = "iron-air-brasil-ltda.myshopify.com";
-  const configuredShop = process.env.SHOPIFY_SHOP || liveShop;
-  const session = await prisma.session.findFirst({
-    where: {
-      shop: liveShop,
-      isOnline: false,
-    },
-  });
-  const fallbackSession =
-    session ||
-    (configuredShop === liveShop
-      ? null
-      : await prisma.session.findFirst({
-          where: {
-            shop: configuredShop,
-            isOnline: false,
-          },
-        }));
+function getConfiguredShop() {
+  const configuredShop = process.env.SHOPIFY_SHOP?.trim();
+  const shop =
+    configuredShop ||
+    (process.env.NODE_ENV !== "production" ? DEV_SHOPIFY_SHOP : null);
 
-  if (!fallbackSession?.accessToken) {
-    throw new Error(`No offline Shopify session found for ${liveShop}.`);
+  if (!shop) {
+    throw new Error("SHOPIFY_SHOP nao configurado");
   }
 
-  return fallbackSession;
+  return shop;
 }
 
 async function shopifyGraphql(query, variables = {}) {
-  const session = await getOfflineSession();
-  const response = await fetch(
-    `https://${session.shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": session.accessToken,
-      },
-      body: JSON.stringify({ query, variables }),
-    },
-  );
+  const { admin } = await unauthenticated.admin(getConfiguredShop());
+  const response = await admin.graphql(query, { variables });
   const data = await response.json();
 
   if (!response.ok || data.errors) {
@@ -143,11 +135,36 @@ async function getTestVariant() {
   return { product, variant };
 }
 
-export async function createDraftShopifyOrderForCheckout(payload) {
+export async function findAsaasShopifyOrderByExternalReference(
+  externalReference,
+) {
+  if (!externalReference) {
+    return null;
+  }
+
+  return prisma.asaasShopifyOrder.findFirst({
+    where: { externalReference },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createDraftShopifyOrderForCheckout(
+  payload,
+  { allowTestFallback = false } = {},
+) {
   const cartItems = Array.isArray(payload.items)
     ? payload.items.filter((item) => item?.variantGid || item?.variantId)
     : [];
-  const { variant } = cartItems.length ? { variant: null } : await getTestVariant();
+  const { variant } = cartItems.length
+    ? { variant: null }
+    : allowTestFallback
+      ? await getTestVariant()
+      : { variant: null };
+
+  if (!cartItems.length && !variant) {
+    throw new Error("Checkout requires at least one real Shopify variant.");
+  }
+
   const amount = Number(payload.value).toFixed(2);
   const lineItems = cartItems.length
     ? cartItems.map((item) => {
@@ -225,7 +242,7 @@ export async function createDraftShopifyOrderForCheckout(payload) {
       input: {
         email: payload.email,
         presentmentCurrencyCode: "BRL",
-        sourceName: "asaas_sandbox",
+        sourceName: getSourceName(),
         taxExempt: true,
         visibleToCustomer: false,
         tags: buildOrderTags(),
@@ -256,6 +273,37 @@ export async function createDraftShopifyOrderForCheckout(payload) {
   return draftOrder;
 }
 
+export async function deleteDraftShopifyOrder(draftOrderId) {
+  if (!draftOrderId) {
+    return null;
+  }
+
+  const data = await shopifyGraphql(
+    `#graphql
+      mutation deleteDraftOrder($input: DraftOrderDeleteInput!) {
+        draftOrderDelete(input: $input) {
+          deletedId
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      input: {
+        id: draftOrderId,
+      },
+    },
+  );
+
+  assertNoShopifyUserErrors(
+    "draftOrderDelete",
+    data.draftOrderDelete.userErrors,
+  );
+
+  return data.draftOrderDelete.deletedId;
+}
+
 export async function attachAsaasPaymentToDraftOrder({
   draftOrder,
   asaasPaymentId,
@@ -271,6 +319,7 @@ export async function attachAsaasPaymentToDraftOrder({
       OR: [
         { asaasPaymentId },
         asaasCheckoutId ? { asaasCheckoutId } : undefined,
+        externalReference ? { externalReference } : undefined,
       ].filter(Boolean),
     },
   });
@@ -319,20 +368,37 @@ export async function attachAsaasPaymentToDraftOrder({
 
   const updatedDraftOrder = data.draftOrderUpdate.draftOrder;
 
-  const createdOrder = await prisma.asaasShopifyOrder.create({
-    data: {
-      asaasPaymentId,
-      asaasCheckoutId,
-      asaasCustomerId,
-      draftOrderId: updatedDraftOrder.id,
-      draftOrderName: updatedDraftOrder.name,
-      externalReference,
-      status: "PENDING",
-      invoiceUrl,
-      asaasCheckoutUrl: checkoutUrl,
-      value: Number(value),
-    },
-  });
+  let createdOrder;
+
+  try {
+    createdOrder = await prisma.asaasShopifyOrder.create({
+      data: {
+        asaasPaymentId,
+        asaasCheckoutId,
+        asaasCustomerId,
+        draftOrderId: updatedDraftOrder.id,
+        draftOrderName: updatedDraftOrder.name,
+        externalReference,
+        status: "PENDING",
+        invoiceUrl,
+        asaasCheckoutUrl: checkoutUrl,
+        value: Number(value),
+      },
+    });
+  } catch (error) {
+    if (error?.code !== "P2002") {
+      throw error;
+    }
+
+    const existingOrderAfterRace =
+      await findAsaasShopifyOrderByExternalReference(externalReference);
+
+    if (!existingOrderAfterRace) {
+      throw error;
+    }
+
+    return existingOrderAfterRace;
+  }
 
   console.log("[SHOPIFY DRAFT ORDER LINKED]", {
     draftOrder: updatedDraftOrder.name,
@@ -342,6 +408,43 @@ export async function attachAsaasPaymentToDraftOrder({
   });
 
   return createdOrder;
+}
+
+export async function markDraftOrderAsFailed({
+  draftOrder,
+  externalReference,
+  value,
+  reason,
+}) {
+  if (!draftOrder?.id) {
+    return null;
+  }
+
+  const existingOrder = await findAsaasShopifyOrderByExternalReference(
+    externalReference,
+  );
+
+  if (existingOrder) {
+    return prisma.asaasShopifyOrder.update({
+      where: { id: existingOrder.id },
+      data: {
+        status: "FAILED",
+        failureReason: reason,
+      },
+    });
+  }
+
+  return prisma.asaasShopifyOrder.create({
+    data: {
+      asaasPaymentId: `failed:${externalReference}`,
+      draftOrderId: draftOrder.id,
+      draftOrderName: draftOrder.name,
+      externalReference,
+      status: "FAILED",
+      failureReason: reason,
+      value: Number(value),
+    },
+  });
 }
 
 export async function completeDraftOrderForAsaasPayment(
@@ -410,7 +513,7 @@ export async function completeDraftOrderForAsaasPayment(
       }`,
     {
       id: mappedOrder.draftOrderId,
-      sourceName: "asaas_sandbox",
+      sourceName: getSourceName(),
     },
   );
 
