@@ -1,4 +1,5 @@
 import {
+  getAsaasCustomer,
   getAsaasPayment,
   isAsaasPaymentApproved,
 } from "../services/asaas.server";
@@ -35,8 +36,11 @@ export async function loader({ request }) {
     const paid = isAsaasPaymentApproved(payment);
 
     if (paid) {
+      const asaasCustomer = await getAsaasCustomer(payment.customer);
+
       await completeDraftOrderForAsaasPayment(paymentId, {
         asaasCustomerId: payment.customer,
+        asaasCustomer,
         asaasPayment: payment,
         externalReference: payment.externalReference || externalReference,
       });

@@ -577,6 +577,7 @@ export async function handleAsaasWebhook(payload) {
         : payment;
     const asaasCustomerId =
       asaasPayment?.customer ?? payment?.customer ?? checkout?.customer;
+    const asaasCustomer = await getAsaasCustomer(asaasCustomerId);
     const resolvedExternalReference =
       asaasPayment?.externalReference ??
       externalReference;
@@ -600,6 +601,7 @@ export async function handleAsaasWebhook(payload) {
     await completeDraftOrderForAsaasPayment(paymentId, {
       asaasCheckoutId: checkoutId,
       asaasCustomerId,
+      asaasCustomer,
       asaasPayment,
       externalReference: resolvedExternalReference,
     });

@@ -84,9 +84,13 @@ function sanitizePayloadForLog(value) {
 
   if (
     typeof value.key === "string" &&
-    ["email", "cpfCnpj", "customer_phone", "asaas_customer_phone"].includes(
-      value.key,
-    ) &&
+    [
+      "email",
+      "cpfCnpj",
+      "CPF/CNPJ",
+      "customer_phone",
+      "asaas_customer_phone",
+    ].includes(value.key) &&
     value.value
   ) {
     return {
@@ -200,6 +204,7 @@ function buildCustomAttributes({
     { key: "externalReference", value: externalReference },
     source ? { key: "source", value: source } : null,
     customer?.cpfCnpj ? { key: "cpfCnpj", value: customer.cpfCnpj } : null,
+    customer?.cpfCnpj ? { key: "CPF/CNPJ", value: customer.cpfCnpj } : null,
     customer?.name ? { key: "customer_name", value: customer.name } : null,
     customer?.email ? { key: "customer_email", value: customer.email } : null,
     customer?.phone || customer?.mobilePhone
