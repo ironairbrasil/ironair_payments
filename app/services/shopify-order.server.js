@@ -147,7 +147,7 @@ function buildShopifyAddress(address = {}, customer = {}) {
     city: address.cityName || address.city,
     provinceCode: address.state,
     zip: address.postalCode,
-    countryCode: address.country || "BR",
+    countryCode: "BR",
     phone: address.phone || customer.mobilePhone || customer.phone,
   });
 }
