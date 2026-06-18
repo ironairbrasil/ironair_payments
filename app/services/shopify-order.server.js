@@ -36,15 +36,13 @@ function buildOrderTags(asaasPaymentId) {
   ];
 }
 
-function buildOrderNote({ asaasPaymentId, externalReference, invoiceUrl }) {
+function buildOrderNote({ externalReference } = {}) {
   const environmentName =
     getAsaasConfig().env === "production" ? "production" : "sandbox";
 
   return [
-    `Iron Air ${environmentName} payment via Asaas.`,
-    asaasPaymentId ? `Asaas payment: ${asaasPaymentId}` : null,
-    `External reference: ${externalReference}`,
-    invoiceUrl ? `Invoice URL: ${invoiceUrl}` : null,
+    `Iron Air ${environmentName} checkout via Asaas.`,
+    externalReference ? `External reference: ${externalReference}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -183,50 +181,98 @@ function hasAsaasAddress(asaasCustomer = {}) {
 }
 
 function buildCustomAttributes({
-  asaasPaymentId,
-  asaasCheckoutId,
   externalReference,
-  invoiceUrl,
   customer,
-  shippingAddress,
   source,
   paidAt,
   paymentStatus,
 }) {
   return [
+    customer?.cpfCnpj ? { key: "CPF/CNPJ", value: customer.cpfCnpj } : null,
+    paymentStatus ? { key: "Pagamento", value: paymentStatus } : null,
+    paidAt ? { key: "Data pagamento", value: formatDateTimeForBrazil(paidAt) } : null,
+    externalReference ? { key: "externalReference", value: externalReference } : null,
+    source ? { key: "source", value: source } : null,
+  ].filter(Boolean);
+}
+
+function formatDateTimeForBrazil(value) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function getPaymentLabel(asaasPayment = {}) {
+  const billingType = String(asaasPayment.billingType || "").toUpperCase();
+
+  if (billingType === "PIX") {
+    return "Pago via Pix";
+  }
+
+  if (billingType === "CREDIT_CARD") {
+    return "Pago via cartão";
+  }
+
+  return "Pago via Asaas";
+}
+
+function buildAsaasMetafields({
+  asaasPaymentId,
+  asaasCheckoutId,
+  asaasCustomerId,
+  invoiceUrl,
+  externalReference,
+  asaasPayment,
+}) {
+  return [
     asaasPaymentId
-      ? { key: "asaas_payment_id", value: asaasPaymentId }
+      ? {
+          namespace: "ironair_asaas",
+          key: "payment_id",
+          type: "single_line_text_field",
+          value: asaasPaymentId,
+        }
       : null,
     asaasCheckoutId
-      ? { key: "asaas_checkout_id", value: asaasCheckoutId }
-      : null,
-    invoiceUrl ? { key: "asaas_invoice_url", value: invoiceUrl } : null,
-    { key: "externalReference", value: externalReference },
-    source ? { key: "source", value: source } : null,
-    customer?.cpfCnpj ? { key: "cpfCnpj", value: customer.cpfCnpj } : null,
-    customer?.cpfCnpj ? { key: "CPF/CNPJ", value: customer.cpfCnpj } : null,
-    customer?.name ? { key: "customer_name", value: customer.name } : null,
-    customer?.email ? { key: "customer_email", value: customer.email } : null,
-    customer?.phone || customer?.mobilePhone
       ? {
-          key: "customer_phone",
-          value: customer.mobilePhone || customer.phone,
+          namespace: "ironair_asaas",
+          key: "checkout_id",
+          type: "single_line_text_field",
+          value: asaasCheckoutId,
         }
       : null,
-    shippingAddress?.postalCode
-      ? { key: "shipping_postal_code", value: shippingAddress.postalCode }
-      : null,
-    shippingAddress?.number
-      ? { key: "shipping_number", value: shippingAddress.number }
-      : null,
-    shippingAddress?.neighborhood
+    asaasCustomerId
       ? {
-          key: "shipping_neighborhood",
-          value: shippingAddress.neighborhood,
+          namespace: "ironair_asaas",
+          key: "customer_id",
+          type: "single_line_text_field",
+          value: asaasCustomerId,
         }
       : null,
-    paidAt ? { key: "paidAt", value: paidAt } : null,
-    paymentStatus ? { key: "paymentStatus", value: paymentStatus } : null,
+    invoiceUrl
+      ? { namespace: "ironair_asaas", key: "invoice_url", type: "url", value: invoiceUrl }
+      : null,
+    externalReference
+      ? {
+          namespace: "ironair_asaas",
+          key: "external_reference",
+          type: "single_line_text_field",
+          value: externalReference,
+        }
+      : null,
+    asaasPayment
+      ? {
+          namespace: "ironair_asaas",
+          key: "payment_payload",
+          type: "json",
+          value: JSON.stringify(sanitizePayloadForLog(asaasPayment)),
+        }
+      : null,
   ].filter(Boolean);
 }
 
@@ -239,29 +285,6 @@ function buildBrazilTaxLocalizedFields(customer = {}) {
         },
       ]
     : undefined;
-}
-
-function buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer) {
-  return [
-    asaasCustomerId
-      ? { key: "asaas_customer_id", value: asaasCustomerId }
-      : null,
-    asaasCustomer?.name
-      ? { key: "asaas_customer_name", value: asaasCustomer.name }
-      : null,
-    asaasCustomer?.email
-      ? { key: "asaas_customer_email", value: asaasCustomer.email }
-      : null,
-    asaasCustomer?.cpfCnpj
-      ? { key: "asaas_customer_cpf_cnpj", value: asaasCustomer.cpfCnpj }
-      : null,
-    asaasCustomer?.phone || asaasCustomer?.mobilePhone
-      ? {
-          key: "asaas_customer_phone",
-          value: asaasCustomer.mobilePhone || asaasCustomer.phone,
-        }
-      : null,
-  ].filter(Boolean);
 }
 
 function getConfiguredShop() {
@@ -287,6 +310,44 @@ async function shopifyGraphql(query, variables = {}) {
   }
 
   return data.data;
+}
+
+async function updateCompletedShopifyOrderMetadata(orderId, input) {
+  if (!orderId) {
+    return null;
+  }
+
+  const data = await shopifyGraphql(
+    `#graphql
+      mutation updateCompletedOrderMetadata($input: OrderInput!) {
+        orderUpdate(input: $input) {
+          order {
+            id
+            customAttributes {
+              key
+              value
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      input: {
+        id: orderId,
+        ...input,
+      },
+    },
+  );
+
+  assertNoShopifyUserErrors(
+    "orderUpdate metadata",
+    data.orderUpdate.userErrors,
+  );
+
+  return data.orderUpdate.order;
 }
 
 async function getTestVariant() {
@@ -441,7 +502,6 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
   const customAttributes = buildCustomAttributes({
     externalReference,
     customer: payload.customer,
-    shippingAddress: payload.shippingAddress,
     source: "ironair_custom_checkout",
   });
   const input = {
@@ -669,7 +729,6 @@ export async function attachAsaasPaymentToDraftOrder({
   invoiceUrl,
   checkoutUrl,
   customer,
-  shippingAddress,
 }) {
   const existingOrder = await prisma.asaasShopifyOrder.findFirst({
     where: {
@@ -710,13 +769,16 @@ export async function attachAsaasPaymentToDraftOrder({
           invoiceUrl,
         }),
         customAttributes: buildCustomAttributes({
+          externalReference,
+          customer,
+          source: customer ? "ironair_custom_checkout" : undefined,
+        }),
+        metafields: buildAsaasMetafields({
           asaasPaymentId,
           asaasCheckoutId,
-          externalReference,
+          asaasCustomerId,
           invoiceUrl,
-          customer,
-          shippingAddress,
-          source: customer ? "ironair_custom_checkout" : undefined,
+          externalReference,
         }),
         localizedFields: buildBrazilTaxLocalizedFields(customer),
       },
@@ -841,6 +903,25 @@ export async function completeDraftOrderForAsaasPayment(
   }
 
   if (mappedOrder.status === "PAID") {
+    if (mappedOrder.shopifyOrderId) {
+      await updateCompletedShopifyOrderMetadata(mappedOrder.shopifyOrderId, {
+        customAttributes: buildCustomAttributes({
+          externalReference: mappedOrder.externalReference,
+          customer: asaasCustomer || {},
+          paidAt: mappedOrder.paidAt || new Date().toISOString(),
+          paymentStatus: getPaymentLabel(asaasPayment),
+        }),
+        metafields: buildAsaasMetafields({
+          asaasPaymentId: asaasPaymentId || mappedOrder.asaasPaymentId,
+          asaasCheckoutId: asaasCheckoutId || mappedOrder.asaasCheckoutId,
+          asaasCustomerId: asaasCustomerId || mappedOrder.asaasCustomerId,
+          invoiceUrl: mappedOrder.invoiceUrl,
+          externalReference: mappedOrder.externalReference,
+          asaasPayment,
+        }),
+      });
+    }
+
     return mappedOrder;
   }
 
@@ -903,16 +984,20 @@ export async function completeDraftOrderForAsaasPayment(
           : {}),
         customAttributes: [
           ...buildCustomAttributes({
-            asaasPaymentId: paymentId,
-            asaasCheckoutId: checkoutId,
             externalReference: mappedOrder.externalReference,
-            invoiceUrl: mappedOrder.invoiceUrl,
             customer: effectiveCustomer,
             paidAt: new Date().toISOString(),
-            paymentStatus: "PAID",
+            paymentStatus: getPaymentLabel(asaasPayment),
           }),
-          ...buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer),
         ],
+        metafields: buildAsaasMetafields({
+          asaasPaymentId: paymentId,
+          asaasCheckoutId: checkoutId,
+          asaasCustomerId,
+          invoiceUrl: mappedOrder.invoiceUrl,
+          externalReference: mappedOrder.externalReference,
+          asaasPayment,
+        }),
         localizedFields: buildBrazilTaxLocalizedFields(effectiveCustomer),
       };
 
@@ -1006,6 +1091,23 @@ export async function completeDraftOrderForAsaasPayment(
   if (!order) {
     throw new Error(`Draft order ${mappedOrder.draftOrderId} did not return an order.`);
   }
+
+  await updateCompletedShopifyOrderMetadata(order.id, {
+    customAttributes: buildCustomAttributes({
+      externalReference: mappedOrder.externalReference,
+      customer: effectiveCustomer,
+      paidAt: new Date().toISOString(),
+      paymentStatus: getPaymentLabel(asaasPayment),
+    }),
+    metafields: buildAsaasMetafields({
+      asaasPaymentId: paymentId,
+      asaasCheckoutId: checkoutId,
+      asaasCustomerId,
+      invoiceUrl: mappedOrder.invoiceUrl,
+      externalReference: mappedOrder.externalReference,
+      asaasPayment,
+    }),
+  });
 
   const updatedOrder = await prisma.asaasShopifyOrder.update({
     where: { id: mappedOrder.id },
