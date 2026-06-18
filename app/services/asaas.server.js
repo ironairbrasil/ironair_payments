@@ -72,6 +72,10 @@ function truncateAsaasText(value, maxLength) {
   return text.length > maxLength ? text.slice(0, maxLength) : text;
 }
 
+function todayAsIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function maskValue(value) {
   const text = String(value || "");
 
@@ -175,6 +179,41 @@ export async function createAsaasCheckout({
     ...checkout,
     checkoutUrl: getCheckoutUrl(checkout),
   };
+}
+
+async function createAsaasCustomerForCustomCheckout({ customer, shippingAddress }) {
+  const customerPayload = {
+    name: customer.name,
+    email: customer.email,
+    cpfCnpj: customer.cpfCnpj,
+    mobilePhone: customer.phone,
+    phone: customer.phone,
+    address: shippingAddress?.address1,
+    addressNumber: shippingAddress?.number,
+    complement: shippingAddress?.complement,
+    province: shippingAddress?.neighborhood,
+    postalCode: shippingAddress?.postalCode,
+    city: shippingAddress?.city,
+    state: shippingAddress?.provinceCode,
+  };
+
+  console.log(
+    "[asaas] Creating customer for custom checkout.",
+    sanitizePayloadForLog(customerPayload),
+  );
+
+  return requestAsaas("/customers", {
+    method: "POST",
+    body: JSON.stringify(customerPayload),
+  });
+}
+
+export async function getAsaasPixQrCode(paymentId) {
+  if (!paymentId) {
+    return null;
+  }
+
+  return requestAsaas(`/payments/${paymentId}/pixQrCode`);
 }
 
 export async function createAsaasCheckoutPayment(payload) {
@@ -309,6 +348,50 @@ export async function createAsaasCheckoutForCustomCheckout({
   return {
     checkout,
     checkoutUrl: checkout.checkoutUrl,
+  };
+}
+
+export async function createAsaasPixPaymentForCustomCheckout({
+  customer,
+  shippingAddress,
+  externalReference,
+  items,
+  value,
+}) {
+  const asaasCustomer = await createAsaasCustomerForCustomCheckout({
+    customer,
+    shippingAddress,
+  });
+  const description = truncateAsaasText(
+    items
+      .map((item) => `${Math.max(1, Number(item.quantity) || 1)}x ${item.title}`)
+      .join(" | ") || getAsaasDescription(),
+    MAX_ASAAS_DESCRIPTION_LENGTH,
+  );
+  const paymentPayload = {
+    customer: asaasCustomer.id,
+    billingType: "PIX",
+    value: Number(value),
+    dueDate: todayAsIsoDate(),
+    description,
+    externalReference,
+  };
+
+  console.log(
+    "[asaas] Creating direct Pix payment.",
+    sanitizePayloadForLog(paymentPayload),
+  );
+
+  const payment = await requestAsaas("/payments", {
+    method: "POST",
+    body: JSON.stringify(paymentPayload),
+  });
+  const pix = await getAsaasPixQrCode(payment.id);
+
+  return {
+    payment,
+    pix,
+    asaasCustomer,
   };
 }
 

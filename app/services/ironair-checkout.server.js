@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 
-import { createAsaasCheckoutForCustomCheckout } from "./asaas.server";
+import {
+  createAsaasPixPaymentForCustomCheckout,
+  getAsaasPixQrCode,
+} from "./asaas.server";
 import { attachAsaasPaymentToDraftOrder } from "./shopify-order.server";
 import {
   createDraftShopifyOrderForIronAirCheckout,
@@ -150,9 +153,13 @@ export async function createIronAirCheckout(payload) {
     normalizedPayload.externalReference,
   );
 
-  if (existingOrder?.asaasCheckoutUrl) {
+  if (existingOrder?.asaasPaymentId) {
+    const pix = await getAsaasPixQrCode(existingOrder.asaasPaymentId);
+
     return {
-      checkoutUrl: existingOrder.asaasCheckoutUrl,
+      checkoutUrl: null,
+      paymentId: existingOrder.asaasPaymentId,
+      pix,
       externalReference: existingOrder.externalReference,
       draftOrderId: existingOrder.draftOrderId,
       draftOrderName: existingOrder.draftOrderName,
@@ -172,23 +179,24 @@ export async function createIronAirCheckout(payload) {
   totalValue = draftResult.value;
 
   try {
-    const asaasResult = await createAsaasCheckoutForCustomCheckout({
+    const asaasResult = await createAsaasPixPaymentForCustomCheckout({
       customer: normalizedPayload.customer,
       shippingAddress: normalizedPayload.shippingAddress,
       externalReference: normalizedPayload.externalReference,
       items: verifiedItems,
+      value: totalValue,
     });
-    const checkout = asaasResult.checkout;
+    const payment = asaasResult.payment;
     const mappedOrder = await attachAsaasPaymentToDraftOrder({
       draftOrder,
-      asaasPaymentId: checkout.id,
-      asaasCheckoutId: checkout.id,
-      asaasCustomerId: checkout.customer,
+      asaasPaymentId: payment.id,
+      asaasCheckoutId: null,
+      asaasCustomerId: payment.customer || asaasResult.asaasCustomer?.id,
       value: totalValue,
       externalReference:
-        checkout.externalReference || normalizedPayload.externalReference,
-      invoiceUrl: null,
-      checkoutUrl: asaasResult.checkoutUrl,
+        payment.externalReference || normalizedPayload.externalReference,
+      invoiceUrl: payment.invoiceUrl || null,
+      checkoutUrl: null,
       customer: normalizedPayload.customer,
       shippingAddress: normalizedPayload.shippingAddress,
     });
@@ -204,8 +212,10 @@ export async function createIronAirCheckout(payload) {
     });
 
     return {
-      checkoutUrl: asaasResult.checkoutUrl,
-      checkoutId: checkout.id,
+      checkoutUrl: null,
+      checkoutId: null,
+      paymentId: payment.id,
+      pix: asaasResult.pix,
       externalReference: mappedOrder.externalReference,
       draftOrderId: mappedOrder.draftOrderId,
       draftOrderName: mappedOrder.draftOrderName,

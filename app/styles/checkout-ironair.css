@@ -81,7 +81,7 @@ body {
 }
 
 .ia-section {
-  margin-top: 34px;
+  margin-top: 24px;
 }
 
 .ia-section h1,
@@ -264,6 +264,62 @@ body {
   font-size: 13px;
 }
 
+.ia-pix-result {
+  padding: 14px 0 0;
+  display: grid;
+  grid-template-columns: 128px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.ia-pix-result div {
+  grid-column: 1 / -1;
+}
+
+.ia-pix-result h2 {
+  margin: 0 0 5px;
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.ia-pix-result p {
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ia-pix-result img {
+  width: 128px;
+  height: 128px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.ia-pix-result textarea {
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  border: 1px solid #d7d7d7;
+  border-radius: 5px;
+  padding: 10px;
+  color: #222;
+  font: inherit;
+  font-size: 12px;
+}
+
+.ia-pix-result button {
+  grid-column: 1 / -1;
+  height: 44px;
+  border: 0;
+  border-radius: 5px;
+  color: #fff;
+  background: #111;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .ia-protected {
   display: flex;
   align-items: center;
@@ -444,35 +500,49 @@ body {
   border-radius: 50%;
 }
 
-.ia-benefits {
-  margin-top: 56px;
+.ia-payment-methods {
+  margin-top: 18px;
 }
 
-.ia-benefits div {
-  display: grid;
-  grid-template-columns: 25px 1fr;
-  gap: 14px;
-  color: #555;
+.ia-payment-methods details {
+  border: 1px solid #d8d8d8;
+  border-radius: 5px;
+  background: #fff;
 }
 
-.ia-benefits div + div {
-  margin-top: 33px;
+.ia-payment-methods details + details {
+  margin-top: 10px;
 }
 
-.ia-benefits p {
+.ia-payment-methods summary {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 800;
+}
+
+.ia-payment-methods summary::-webkit-details-marker {
+  display: none;
+}
+
+.ia-payment-methods details[open] summary {
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.ia-method-body {
+  padding: 14px 16px 16px;
+}
+
+.ia-method-body > p {
   margin: 0;
-}
-
-.ia-benefits strong,
-.ia-benefits span {
-  display: block;
   font-size: 13px;
-}
-
-.ia-benefits strong {
-  color: #111;
-  font-size: 14px;
-  margin-bottom: 5px;
+  line-height: 1.45;
+  color: #555;
 }
 
 .ia-footer {
@@ -556,8 +626,14 @@ body {
 
   .ia-grid.two,
   .ia-grid.cep,
-  .ia-grid.city {
+  .ia-grid.city,
+  .ia-pix-result {
     grid-template-columns: 1fr;
+  }
+
+  .ia-pix-result img {
+    width: 180px;
+    height: 180px;
   }
 
   .ia-form,

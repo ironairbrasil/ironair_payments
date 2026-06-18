@@ -3,15 +3,12 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  ChevronRight,
-  CreditCard,
   Headphones,
   Lock,
   Search,
   Shield,
   ShieldCheck,
   Truck,
-  Undo2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
@@ -398,6 +395,7 @@ export default function IronAirCheckout() {
   const [cepLoading, setCepLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [pixPayment, setPixPayment] = useState(null);
   const subtotal = useMemo(
     () =>
       items.reduce(
@@ -479,6 +477,7 @@ export default function IronAirCheckout() {
   async function submitCheckout(event) {
     event.preventDefault();
     setFormError("");
+    setPixPayment(null);
 
     if (itemLoadError || subtotal <= 0) {
       setFormError(
@@ -532,16 +531,28 @@ export default function IronAirCheckout() {
       });
       const data = await response.json();
 
-      if (!response.ok || !data.success || !data.checkoutUrl) {
-        throw new Error(data.error || "Não foi possível criar o pagamento.");
+      if (!response.ok || !data.success || !data.pix?.payload) {
+        throw new Error(data.error || "Não foi possível gerar o Pix.");
       }
 
-      window.location.assign(data.checkoutUrl);
+      setPixPayment({
+        paymentId: data.paymentId,
+        externalReference: data.externalReference,
+        payload: data.pix.payload,
+        encodedImage: data.pix.encodedImage,
+        expirationDate: data.pix.expirationDate,
+      });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function copyPixCode() {
+    if (!pixPayment?.payload) return;
+
+    await navigator.clipboard.writeText(pixPayment.payload);
   }
 
   return (
@@ -559,17 +570,12 @@ export default function IronAirCheckout() {
           </div>
         </header>
 
-        <nav className="ia-breadcrumb" aria-label="Etapas do checkout">
-          <span>Carrinho</span>
-          <ChevronRight size={17} />
-          <strong>Informações</strong>
-          <ChevronRight size={17} />
-          <span>Pagamento</span>
-          <ChevronRight size={17} />
-          <span>Revisão</span>
-        </nav>
-
-        <form className="ia-form" onSubmit={submitCheckout} noValidate>
+        <form
+          id="ironair-checkout-form"
+          className="ia-form"
+          onSubmit={submitCheckout}
+          noValidate
+        >
           <section className="ia-section ia-delivery">
             <h1>Entrega</h1>
             <Field
@@ -708,20 +714,6 @@ export default function IronAirCheckout() {
 
           {itemLoadError ? <div className="ia-error">{itemLoadError}</div> : null}
           {formError ? <div className="ia-error">{formError}</div> : null}
-
-          <button
-            className="ia-submit"
-            type="submit"
-            disabled={loading || Boolean(itemLoadError) || subtotal <= 0}
-          >
-            <span>{loading ? "Criando pagamento..." : "Continuar para pagamento"}</span>
-            <ArrowRight size={28} />
-          </button>
-
-          <div className="ia-protected">
-            <ShieldCheck size={18} />
-            Seus dados estão protegidos com criptografia de ponta a ponta.
-          </div>
         </form>
       </section>
 
@@ -776,72 +768,104 @@ export default function IronAirCheckout() {
               </div>
               <div>
                 <strong>Pagar com Asaas</strong>
-                <span>Boleto, Pix, Cartão e mais</span>
+                <span>Pix e Cartão</span>
               </div>
               <i />
             </div>
           </section>
 
-          <div className="ia-benefits">
-            <div>
-              <Shield size={22} />
-              <p>
-                <strong>Compra 100% segura</strong>
-                <span>Seus dados protegidos</span>
-              </p>
-            </div>
-            <div>
-              <ShieldCheck size={22} />
-              <p>
-                <strong>Pagamento processado pelo Asaas</strong>
-                <span>Ambiente criptografado e certificado</span>
-              </p>
-            </div>
-            <div>
-              <Truck size={22} />
-              <p>
-                <strong>Pedido com rastreamento</strong>
-                <span>Você receberá atualizações por e-mail e WhatsApp</span>
-              </p>
-            </div>
-            <div>
-              <Headphones size={22} />
-              <p>
-                <strong>Suporte humanizado</strong>
-                <span>Atendimento rápido e dedicado</span>
-              </p>
-            </div>
+          <div className="ia-payment-methods">
+            <details open>
+              <summary>
+                <span>Pix</span>
+                <ChevronDown size={18} />
+              </summary>
+              <div className="ia-method-body">
+                {pixPayment ? (
+                  <section className="ia-pix-result" aria-live="polite">
+                    <div>
+                      <h2>Pix gerado</h2>
+                      <p>
+                        Escaneie o QR Code ou copie o código Pix. Assim que o pagamento
+                        for confirmado, seu pedido será liberado.
+                      </p>
+                    </div>
+                    {pixPayment.encodedImage ? (
+                      <img
+                        src={`data:image/png;base64,${pixPayment.encodedImage}`}
+                        alt="QR Code Pix"
+                      />
+                    ) : null}
+                    <textarea readOnly value={pixPayment.payload} />
+                    <button type="button" onClick={copyPixCode}>
+                      Copiar código Pix
+                    </button>
+                  </section>
+                ) : (
+                  <p>
+                    O QR Code Pix será gerado aqui depois que você confirmar os dados.
+                  </p>
+                )}
+              </div>
+            </details>
+
+            <details>
+              <summary>
+                <span>Cartão de crédito</span>
+                <ChevronDown size={18} />
+              </summary>
+              <div className="ia-method-body">
+                <p>
+                  O pagamento por cartão será liberado neste checkout depois da etapa Pix.
+                </p>
+              </div>
+            </details>
+          </div>
+
+          <button
+            className="ia-submit"
+            type="submit"
+            form="ironair-checkout-form"
+            disabled={loading || Boolean(itemLoadError) || subtotal <= 0}
+          >
+            <span>{loading ? "Gerando pagamento..." : "Continuar para pagamento"}</span>
+            <ArrowRight size={28} />
+          </button>
+
+          <div className="ia-protected">
+            <ShieldCheck size={18} />
+            Seus dados estão protegidos com criptografia de ponta a ponta.
           </div>
         </div>
       </aside>
 
       <footer className="ia-footer">
         <div>
-          <Truck size={24} />
+          <Shield size={24} />
           <p>
-            <strong>Frete grátis</strong>
-            <span>Para todo o Brasil</span>
+            <strong>Compra 100% segura</strong>
+            <span>Seus dados protegidos</span>
           </p>
         </div>
         <div>
           <ShieldCheck size={24} />
           <p>
-            <strong>Enviamos para todo Brasil</strong>
-            <span>Com código de rastreio</span>
+            <strong>Pagamento processado pelo Asaas</strong>
+            <span>Ambiente criptografado e certificado</span>
           </p>
         </div>
         <div>
-          <CreditCard size={24} />
+          <Truck size={24} />
           <p>
-            <strong>Parcele em até 12x</strong>
-            <span>No cartão de crédito</span>
+            <strong>Pedido com rastreamento</strong>
+            <span>Atualizações por e-mail e WhatsApp</span>
           </p>
         </div>
         <div>
-          <Undo2 size={24} />
+          <Headphones size={24} />
           <p>
-            <strong>7 dias para devolução</strong>
-            <span>Ou reembolso total</span>
+            <strong>Suporte humanizado</strong>
+            <span>Atendimento rápido e dedicado</span>
           </p>
         </div>
       </footer>

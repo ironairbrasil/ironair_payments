@@ -46,6 +46,8 @@ export async function action({ request }) {
       success: true,
       checkoutUrl: checkout.checkoutUrl,
       checkoutId: checkout.checkoutId,
+      paymentId: checkout.paymentId,
+      pix: checkout.pix,
       externalReference: checkout.externalReference,
       draftOrderId: checkout.draftOrderId,
       draftOrderName: checkout.draftOrderName,
