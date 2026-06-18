@@ -1,445 +1,631 @@
+/* eslint-disable react/prop-types */
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+  Headphones,
+  Lock,
+  Search,
+  Shield,
+  ShieldCheck,
+  Truck,
+  Undo2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
 
-function numberFromParam(value, fallback = 0) {
+import checkoutStyles from "../styles/checkout-ironair.css?url";
+
+const BRAZIL_STATES = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
+];
+
+const DEFAULT_ITEM = {
+  variantId: "gid://shopify/ProductVariant/1234567890",
+  title: "Borrifador de Agua Pressurizado",
+  quantity: 1,
+  price: 79,
+  compareAtPrice: null,
+  image: "",
+};
+
+export function links() {
+  return [{ rel: "stylesheet", href: checkoutStyles }];
+}
+
+function parseCurrency(value, fallback = 0) {
   const number = Number(String(value || "").replace(",", "."));
   return Number.isFinite(number) ? number : fallback;
 }
 
-function cleanVariantId(variantId) {
-  return String(variantId || "").trim();
-}
+function parseItems(searchParams) {
+  const encodedItems = searchParams.get("items");
 
-function handleFromTitle(title) {
-  return String(title || "iron-air")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "iron-air";
-}
+  if (encodedItems) {
+    try {
+      const parsedItems = JSON.parse(encodedItems);
 
-function parseCartItems(searchParams) {
-  const items = [];
-
-  for (const [key, value] of searchParams.entries()) {
-    const match = key.match(/^items\[(\d+)\]\[(variantId|quantity|title|image|price|productHandle)\]$/);
-    if (!match) continue;
-
-    const index = Number(match[1]);
-    const field = match[2];
-    items[index] = {
-      ...(items[index] || {}),
-      [field]: value,
-    };
+      if (Array.isArray(parsedItems) && parsedItems.length) {
+        return parsedItems;
+      }
+    } catch {
+      // Fallback to single-item query params below.
+    }
   }
 
-  return items
-    .filter(Boolean)
-    .map((item) => {
-      const quantity = Math.max(1, Math.floor(numberFromParam(item.quantity, 1)));
-      const price = numberFromParam(item.price, 0);
-      const title = item.title || "Iron Air";
-
-      return {
-        variantId: cleanVariantId(item.variantId),
-        quantity,
-        title,
-        image: item.image || "",
-        productHandle: item.productHandle || handleFromTitle(title),
-        price,
-        linePrice: Number((price * quantity).toFixed(2)),
-      };
-    });
+  return [
+    {
+      variantId: searchParams.get("variantId") || DEFAULT_ITEM.variantId,
+      productId: searchParams.get("productId") || "",
+      title: searchParams.get("title") || DEFAULT_ITEM.title,
+      quantity: Math.max(1, Number(searchParams.get("quantity")) || 1),
+      price: parseCurrency(searchParams.get("price"), DEFAULT_ITEM.price),
+      compareAtPrice: searchParams.get("compareAtPrice")
+        ? parseCurrency(searchParams.get("compareAtPrice"))
+        : null,
+      image: searchParams.get("image") || DEFAULT_ITEM.image,
+    },
+  ];
 }
 
 export async function loader({ request }) {
   const url = new URL(request.url);
-  const cartItems = parseCartItems(url.searchParams);
-  const variantId = cleanVariantId(url.searchParams.get("variantId"));
-  const quantity = Math.max(1, Math.floor(numberFromParam(url.searchParams.get("quantity"), 1)));
-  const price = numberFromParam(url.searchParams.get("price"), 0);
-  const title = url.searchParams.get("title") || "Iron Air";
-  const singleItem = {
-    variantId,
-    quantity,
-    title,
-    image: url.searchParams.get("image") || "",
-    productHandle:
-      url.searchParams.get("productHandle") ||
-      url.searchParams.get("handle") ||
-      handleFromTitle(title),
-    price,
-    linePrice: Number((price * quantity).toFixed(2)),
-  };
-  const items = cartItems.length ? cartItems : variantId ? [singleItem] : [];
-  const total = Number(
-    items.reduce((sum, item) => sum + Number(item.linePrice || 0), 0).toFixed(2),
-  );
+  const items = parseItems(url.searchParams);
 
-  return Response.json({
-    source: url.searchParams.get("source") || (cartItems.length ? "cart" : "product"),
-    variantId,
-    quantity,
-    title,
-    image: singleItem.image,
-    productHandle: singleItem.productHandle,
-    price,
+  return {
     items,
-    total,
-  });
+    externalReference: url.searchParams.get("externalReference") || "",
+  };
 }
 
-function currency(value) {
+function onlyDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function formatCpf(value) {
+  const digits = onlyDigits(value).slice(0, 11);
+
+  return digits
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatCep(value) {
+  const digits = onlyDigits(value).slice(0, 8);
+
+  return digits.replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function formatPhone(value) {
+  const digits = onlyDigits(value).slice(0, 11);
+
+  if (digits.length <= 10) {
+    return digits
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+
+  return digits
+    .replace(/(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function formatMoney(value) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(Number(value || 0));
+  }).format(Number(value) || 0);
 }
 
-function splitName(name) {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  return {
-    firstName: parts[0] || "",
-    lastName: parts.slice(1).join(" ") || parts[0] || "",
-  };
-}
-
-function buildCheckoutPayload(product, form) {
-  const name = form.get("name");
-  const email = form.get("email");
-  const cpfCnpj = form.get("cpfCnpj");
-  const phone = form.get("phone");
-  const postalCode = form.get("postalCode");
-  const address1 = form.get("address1");
-  const addressNumber = form.get("addressNumber");
-  const address2 = form.get("address2");
-  const neighborhood = form.get("neighborhood");
-  const city = form.get("city");
-  const province = form.get("province");
-  const items = Array.isArray(product.items) ? product.items : [];
-  const total = Number(
-    items.reduce((sum, item) => sum + Number(item.linePrice || 0), 0).toFixed(2),
+function Field({
+  label,
+  name,
+  value,
+  onChange,
+  error,
+  className = "",
+  children,
+  ...props
+}) {
+  return (
+    <label className={`ia-field ${className} ${error ? "has-error" : ""}`}>
+      <span>{label}</span>
+      <input
+        name={name}
+        value={value}
+        onChange={(event) => onChange(name, event.target.value)}
+        {...props}
+      />
+      {children}
+      {error ? <small>{error}</small> : null}
+    </label>
   );
-  const { firstName, lastName } = splitName(name);
-
-  return {
-    name,
-    email,
-    cpfCnpj,
-    phone,
-    value: total,
-    externalReference: `ironair-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    source: "checkout-ironair",
-    customer: {
-      name,
-      email,
-      cpfCnpj,
-      phone,
-    },
-    shippingAddress: {
-      firstName,
-      lastName,
-      address1: `${address1}, ${addressNumber}`,
-      address2: [address2, neighborhood].filter(Boolean).join(" - "),
-      city,
-      province,
-      zip: postalCode,
-      country: "BR",
-      phone,
-    },
-    items: items.map((item) => ({
-      variantGid: item.variantId,
-      quantity: item.quantity,
-      title: item.title,
-      productHandle: item.productHandle,
-      price: item.price,
-      linePrice: item.linePrice,
-      image: item.image,
-    })),
-  };
 }
 
-export default function CheckoutIronAir() {
-  const product = useLoaderData();
-  const [status, setStatus] = useState({ loading: false, error: "" });
-  const items = Array.isArray(product.items) ? product.items : [];
-  const total = useMemo(
-    () => Number(items.reduce((sum, item) => sum + Number(item.linePrice || 0), 0).toFixed(2)),
+export default function IronAirCheckout() {
+  const { items, externalReference } = useLoaderData();
+  const [form, setForm] = useState({
+    email: "",
+    name: "",
+    cpfCnpj: "",
+    phone: "",
+    postalCode: "",
+    address1: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    provinceCode: "SP",
+    newsletter: true,
+    saveAddress: true,
+  });
+  const [errors, setErrors] = useState({});
+  const [cepLoading, setCepLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+  const subtotal = useMemo(
+    () =>
+      items.reduce(
+        (total, item) =>
+          total + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+        0,
+      ),
     [items],
   );
-  const canCheckout = items.length > 0 && items.every((item) => item.variantId && item.price > 0 && item.quantity > 0);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!canCheckout || status.loading) return;
+  function updateField(name, value) {
+    let nextValue = value;
 
-    setStatus({ loading: true, error: "" });
+    if (name === "cpfCnpj") nextValue = formatCpf(value);
+    if (name === "phone") nextValue = formatPhone(value);
+    if (name === "postalCode") nextValue = formatCep(value);
+
+    setForm((current) => ({ ...current, [name]: nextValue }));
+    setErrors((current) => ({ ...current, [name]: "" }));
+  }
+
+  async function lookupCep() {
+    const cep = onlyDigits(form.postalCode);
+
+    if (cep.length !== 8) {
+      setErrors((current) => ({ ...current, postalCode: "Informe um CEP valido." }));
+      return;
+    }
+
+    setCepLoading(true);
 
     try {
-      const payload = buildCheckoutPayload(
-        product,
-        new FormData(event.currentTarget),
-      );
-      const response = await fetch("/api/checkout/create", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json().catch(() => ({}));
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Nao foi possivel iniciar o pagamento.");
+      if (data.erro) {
+        setErrors((current) => ({ ...current, postalCode: "CEP nao encontrado." }));
+        return;
       }
 
-      const paymentUrl = data.paymentUrl || data.checkoutUrl;
-      if (!paymentUrl) {
-        throw new Error("Checkout sem URL de pagamento.");
-      }
-
-      window.location.href = paymentUrl;
-    } catch (error) {
-      setStatus({
-        loading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel iniciar o pagamento.",
-      });
+      setForm((current) => ({
+        ...current,
+        address1: data.logradouro || current.address1,
+        neighborhood: data.bairro || current.neighborhood,
+        city: data.localidade || current.city,
+        provinceCode: data.uf || current.provinceCode,
+      }));
+    } catch {
+      setErrors((current) => ({
+        ...current,
+        postalCode: "Nao foi possivel buscar o CEP.",
+      }));
+    } finally {
+      setCepLoading(false);
     }
   }
 
+  function validateForm() {
+    const nextErrors = {};
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = "Informe um e-mail valido.";
+    }
+    if (!form.name.trim()) nextErrors.name = "Informe seu nome completo.";
+    if (onlyDigits(form.cpfCnpj).length !== 11) nextErrors.cpfCnpj = "CPF invalido.";
+    if (onlyDigits(form.phone).length < 10) nextErrors.phone = "Telefone invalido.";
+    if (onlyDigits(form.postalCode).length !== 8) nextErrors.postalCode = "CEP invalido.";
+    if (!form.address1.trim()) nextErrors.address1 = "Informe o endereco.";
+    if (!form.number.trim()) nextErrors.number = "Informe o numero.";
+    if (!form.neighborhood.trim()) nextErrors.neighborhood = "Informe o bairro.";
+    if (!form.city.trim()) nextErrors.city = "Informe a cidade.";
+    if (!/^[A-Z]{2}$/.test(form.provinceCode)) nextErrors.provinceCode = "UF invalida.";
+
+    setErrors(nextErrors);
+
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  async function submitCheckout(event) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!validateForm()) return;
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        externalReference,
+        customer: {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          cpfCnpj: onlyDigits(form.cpfCnpj),
+          phone: onlyDigits(form.phone),
+        },
+        shippingAddress: {
+          postalCode: onlyDigits(form.postalCode),
+          address1: form.address1.trim(),
+          number: form.number.trim(),
+          complement: form.complement.trim(),
+          neighborhood: form.neighborhood.trim(),
+          city: form.city.trim(),
+          provinceCode: form.provinceCode,
+          countryCode: "BR",
+          phone: onlyDigits(form.phone),
+        },
+        billingAddress: {
+          postalCode: onlyDigits(form.postalCode),
+          address1: form.address1.trim(),
+          number: form.number.trim(),
+          complement: form.complement.trim(),
+          neighborhood: form.neighborhood.trim(),
+          city: form.city.trim(),
+          provinceCode: form.provinceCode,
+          countryCode: "BR",
+          phone: onlyDigits(form.phone),
+        },
+        items,
+      };
+      const response = await fetch("/api/checkout/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success || !data.checkoutUrl) {
+        throw new Error(data.error || "Nao foi possivel criar o pagamento.");
+      }
+
+      window.location.assign(data.checkoutUrl);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const primaryItem = items[0] || DEFAULT_ITEM;
+
   return (
-    <main style={styles.page}>
-      <section style={styles.shell}>
-        <div style={styles.brand}>Iron Air Brasil</div>
-        <div style={styles.grid}>
-          <section style={styles.summary}>
-            {items[0]?.image ? (
-              <img src={items[0].image} alt={items[0].title} style={styles.image} />
-            ) : null}
-            <div>
-              <h1 style={styles.title}>Finalize sua compra</h1>
-              <p style={styles.subtitle}>Confira o produto e preencha seus dados.</p>
-            </div>
-            {items.map((item, index) => (
-              <div style={styles.productLine} key={`${item.variantId}-${index}`}>
-                <div>
-                  <strong>{item.title}</strong>
-                  <span style={styles.muted}>Quantidade: {item.quantity}</span>
-                </div>
-                <strong>{currency(item.linePrice)}</strong>
-              </div>
-            ))}
-            <div style={styles.productLine}>
-              <strong>Total</strong>
-              <strong>{currency(total)}</strong>
-            </div>
-            <div style={styles.variant}>{items[0]?.variantId || "Variante nao informada"}</div>
+    <main className="ia-checkout">
+      <section className="ia-left">
+        <header className="ia-header">
+          <div className="ia-logo">
+            <strong>IRON AIR</strong>
+            <span>BRASIL</span>
+          </div>
+          <div className="ia-safe">
+            <Lock size={15} />
+            Checkout seguro
+          </div>
+        </header>
+
+        <nav className="ia-breadcrumb" aria-label="Etapas do checkout">
+          <span>Carrinho</span>
+          <ChevronRight size={17} />
+          <strong>Informacoes</strong>
+          <ChevronRight size={17} />
+          <span>Pagamento</span>
+          <ChevronRight size={17} />
+          <span>Revisao</span>
+        </nav>
+
+        <form className="ia-form" onSubmit={submitCheckout} noValidate>
+          <section className="ia-section">
+            <h1>Contato</h1>
+            <p>Informe seu e-mail para receber atualizacoes do pedido.</p>
+            <Field
+              label="E-mail"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={updateField}
+              error={errors.email}
+            >
+              {form.email && !errors.email ? <Check className="ia-valid" size={22} /> : null}
+            </Field>
+            <label className="ia-check">
+              <input
+                checked={form.newsletter}
+                type="checkbox"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    newsletter: event.target.checked,
+                  }))
+                }
+              />
+              <span>Quero receber novidades e ofertas da Iron Air Brasil</span>
+            </label>
           </section>
 
-          <form style={styles.form} onSubmit={handleSubmit}>
-            <div style={styles.formHeader}>
-              <h2 style={styles.formTitle}>Dados para pagamento</h2>
-              <p style={styles.muted}>O Asaas abre somente depois desta etapa.</p>
+          <section className="ia-section">
+            <h2>Dados pessoais</h2>
+            <p>Precisamos dessas informacoes para emitir sua nota fiscal.</p>
+            <div className="ia-grid two">
+              <Field
+                label="Nome completo"
+                name="name"
+                value={form.name}
+                onChange={updateField}
+                error={errors.name}
+              />
+              <Field
+                label="CPF"
+                name="cpfCnpj"
+                value={form.cpfCnpj}
+                onChange={updateField}
+                error={errors.cpfCnpj}
+                inputMode="numeric"
+              />
             </div>
+            <Field
+              label="Telefone / WhatsApp"
+              name="phone"
+              value={form.phone}
+              onChange={updateField}
+              error={errors.phone}
+              inputMode="tel"
+            />
+          </section>
 
-            {!canCheckout ? (
-              <div style={styles.error}>
-                Produto invalido. Volte para a loja e clique em Comprar agora novamente.
-              </div>
-            ) : null}
-
-            <div style={styles.fields}>
-              <label style={styles.label}>
-                Nome completo
-                <input style={styles.input} name="name" required autoComplete="name" />
-              </label>
-              <label style={styles.label}>
-                Email
-                <input style={styles.input} type="email" name="email" required autoComplete="email" />
-              </label>
-              <label style={styles.label}>
-                CPF
-                <input style={styles.input} name="cpfCnpj" required inputMode="numeric" autoComplete="off" />
-              </label>
-              <label style={styles.label}>
-                Telefone
-                <input style={styles.input} name="phone" required inputMode="tel" autoComplete="tel" />
-              </label>
-              <label style={styles.label}>
-                CEP
-                <input style={styles.input} name="postalCode" required inputMode="numeric" autoComplete="postal-code" />
-              </label>
-              <label style={styles.label}>
-                Endereco
-                <input style={styles.input} name="address1" required autoComplete="address-line1" />
-              </label>
-              <label style={styles.label}>
-                Numero
-                <input style={styles.input} name="addressNumber" required autoComplete="address-line2" />
-              </label>
-              <label style={styles.label}>
-                Complemento
-                <input style={styles.input} name="address2" autoComplete="address-line2" />
-              </label>
-              <label style={styles.label}>
-                Bairro
-                <input style={styles.input} name="neighborhood" required />
-              </label>
-              <label style={styles.label}>
-                Cidade
-                <input style={styles.input} name="city" required autoComplete="address-level2" />
-              </label>
-              <label style={styles.label}>
-                Estado
-                <input style={styles.input} name="province" required maxLength={2} autoComplete="address-level1" />
+          <section className="ia-section">
+            <h2>Endereco de entrega</h2>
+            <p>Enviaremos para o endereco abaixo.</p>
+            <div className="ia-grid cep">
+              <Field
+                label="CEP"
+                name="postalCode"
+                value={form.postalCode}
+                onChange={updateField}
+                error={errors.postalCode}
+                inputMode="numeric"
+              >
+                <button
+                  className="ia-cep"
+                  type="button"
+                  onClick={lookupCep}
+                  disabled={cepLoading}
+                >
+                  {cepLoading ? "Buscando" : "Buscar CEP"}
+                  <Search size={18} />
+                </button>
+              </Field>
+              <Field
+                label="Endereco"
+                name="address1"
+                value={form.address1}
+                onChange={updateField}
+                error={errors.address1}
+              />
+            </div>
+            <div className="ia-grid two compact">
+              <Field
+                label="Numero"
+                name="number"
+                value={form.number}
+                onChange={updateField}
+                error={errors.number}
+              />
+              <Field
+                label="Complemento"
+                name="complement"
+                value={form.complement}
+                onChange={updateField}
+              />
+            </div>
+            <div className="ia-grid city">
+              <Field
+                label="Bairro"
+                name="neighborhood"
+                value={form.neighborhood}
+                onChange={updateField}
+                error={errors.neighborhood}
+              />
+              <Field
+                label="Cidade"
+                name="city"
+                value={form.city}
+                onChange={updateField}
+                error={errors.city}
+              />
+              <label className={`ia-field ia-select ${errors.provinceCode ? "has-error" : ""}`}>
+                <span>Estado</span>
+                <select
+                  value={form.provinceCode}
+                  onChange={(event) => updateField("provinceCode", event.target.value)}
+                >
+                  {BRAZIL_STATES.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={18} />
+                {errors.provinceCode ? <small>{errors.provinceCode}</small> : null}
               </label>
             </div>
+            <label className="ia-check">
+              <input
+                checked={form.saveAddress}
+                type="checkbox"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    saveAddress: event.target.checked,
+                  }))
+                }
+              />
+              <span>Salvar endereco para proximas compras</span>
+            </label>
+          </section>
 
-            {status.error ? <div style={styles.error}>{status.error}</div> : null}
+          {formError ? <div className="ia-error">{formError}</div> : null}
 
-            <button style={styles.button} type="submit" disabled={!canCheckout || status.loading}>
-              {status.loading ? "Criando pagamento..." : "Continuar para pagamento"}
-            </button>
-          </form>
-        </div>
+          <button className="ia-submit" type="submit" disabled={loading}>
+            <span>{loading ? "Criando pagamento..." : "Continuar para pagamento"}</span>
+            <ArrowRight size={28} />
+          </button>
+
+          <div className="ia-protected">
+            <ShieldCheck size={18} />
+            Seus dados estao protegidos com criptografia de ponta a ponta.
+          </div>
+        </form>
       </section>
+
+      <aside className="ia-right">
+        <div className="ia-summary">
+          <div className="ia-product">
+            <div className="ia-thumb">
+              {primaryItem.image ? (
+                <img src={primaryItem.image} alt={primaryItem.title} />
+              ) : (
+                <span>IRON AIR</span>
+              )}
+              <b>{primaryItem.quantity || 1}</b>
+            </div>
+            <p>{primaryItem.title}</p>
+            <strong>{formatMoney((Number(primaryItem.price) || 0) * (primaryItem.quantity || 1))}</strong>
+          </div>
+
+          <div className="ia-lines">
+            <div>
+              <span>Subtotal</span>
+              <strong>{formatMoney(subtotal)}</strong>
+            </div>
+            <div>
+              <span>Frete</span>
+              <strong className="muted">Gratis</strong>
+            </div>
+          </div>
+
+          <div className="ia-total">
+            <span>Total</span>
+            <strong>{formatMoney(subtotal)}</strong>
+          </div>
+
+          <section className="ia-payment">
+            <h3>Metodo de pagamento</h3>
+            <div className="ia-payment-card">
+              <div className="ia-asaas">ASAAS</div>
+              <div>
+                <strong>Pagar com Asaas</strong>
+                <span>Boleto, Pix, Cartao e mais</span>
+              </div>
+              <i />
+            </div>
+          </section>
+
+          <div className="ia-benefits">
+            <div>
+              <Shield size={22} />
+              <p>
+                <strong>Compra 100% segura</strong>
+                <span>Seus dados protegidos</span>
+              </p>
+            </div>
+            <div>
+              <ShieldCheck size={22} />
+              <p>
+                <strong>Pagamento processado pelo Asaas</strong>
+                <span>Ambiente criptografado e certificado</span>
+              </p>
+            </div>
+            <div>
+              <Truck size={22} />
+              <p>
+                <strong>Pedido com rastreamento</strong>
+                <span>Voce recebera atualizacoes por e-mail e WhatsApp</span>
+              </p>
+            </div>
+            <div>
+              <Headphones size={22} />
+              <p>
+                <strong>Suporte humanizado</strong>
+                <span>Atendimento rapido e dedicado</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <footer className="ia-footer">
+        <div>
+          <Truck size={24} />
+          <p>
+            <strong>Frete gratis</strong>
+            <span>Para todo o Brasil</span>
+          </p>
+        </div>
+        <div>
+          <ShieldCheck size={24} />
+          <p>
+            <strong>Enviamos para todo Brasil</strong>
+            <span>Com codigo de rastreio</span>
+          </p>
+        </div>
+        <div>
+          <CreditCard size={24} />
+          <p>
+            <strong>Parcele em ate 12x</strong>
+            <span>No cartao de credito</span>
+          </p>
+        </div>
+        <div>
+          <Undo2 size={24} />
+          <p>
+            <strong>7 dias para devolucao</strong>
+            <span>Ou reembolso total</span>
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#f6f6f2",
-    color: "#151515",
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-    padding: "28px 16px",
-  },
-  shell: {
-    width: "min(1120px, 100%)",
-    margin: "0 auto",
-  },
-  brand: {
-    color: "#0f4f4a",
-    fontSize: 14,
-    fontWeight: 900,
-    letterSpacing: 0,
-    marginBottom: 18,
-    textTransform: "uppercase",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
-    gap: 20,
-    alignItems: "start",
-  },
-  summary: {
-    background: "#ffffff",
-    border: "1px solid #e5e2d8",
-    borderRadius: 8,
-    padding: 20,
-    display: "grid",
-    gap: 18,
-  },
-  image: {
-    width: "100%",
-    aspectRatio: "1 / 1",
-    objectFit: "contain",
-    background: "#f3f5f4",
-    borderRadius: 6,
-  },
-  title: {
-    margin: 0,
-    fontSize: 34,
-    lineHeight: 1.05,
-  },
-  subtitle: {
-    margin: "8px 0 0",
-    color: "#666",
-    fontSize: 16,
-    lineHeight: 1.45,
-  },
-  productLine: {
-    borderTop: "1px solid #ebe8df",
-    paddingTop: 16,
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 16,
-    fontSize: 18,
-  },
-  variant: {
-    color: "#667",
-    fontSize: 12,
-    overflowWrap: "anywhere",
-  },
-  form: {
-    background: "#ffffff",
-    border: "1px solid #e5e2d8",
-    borderRadius: 8,
-    padding: 20,
-    display: "grid",
-    gap: 18,
-  },
-  formHeader: {
-    display: "grid",
-    gap: 4,
-  },
-  formTitle: {
-    margin: 0,
-    fontSize: 22,
-  },
-  fields: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-    gap: 12,
-  },
-  label: {
-    display: "grid",
-    gap: 6,
-    color: "#363636",
-    fontSize: 13,
-    fontWeight: 800,
-  },
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #d7d2c6",
-    borderRadius: 6,
-    padding: "13px 12px",
-    font: "inherit",
-    fontSize: 15,
-    outlineColor: "#0f4f4a",
-  },
-  button: {
-    border: 0,
-    borderRadius: 6,
-    padding: "15px 18px",
-    background: "#0f4f4a",
-    color: "#ffffff",
-    font: "inherit",
-    fontSize: 16,
-    fontWeight: 900,
-    cursor: "pointer",
-  },
-  error: {
-    border: "1px solid #f2b6b6",
-    background: "#fff5f5",
-    color: "#9b1c1c",
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 14,
-    fontWeight: 800,
-  },
-  muted: {
-    display: "block",
-    color: "#666",
-    fontSize: 13,
-    fontWeight: 600,
-    lineHeight: 1.45,
-  },
-};

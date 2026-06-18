@@ -148,6 +148,26 @@ function buildShopifyAddress(address = {}, customer = {}) {
   });
 }
 
+function buildCheckoutShopifyAddress(address = {}, customer = {}) {
+  const { firstName, lastName } = splitCustomerName(customer.name);
+  const address1 = [address.address1, address.number].filter(Boolean).join(", ");
+  const address2 = [address.complement, address.neighborhood]
+    .filter(Boolean)
+    .join(" - ");
+
+  return compactObject({
+    firstName,
+    lastName,
+    address1,
+    address2,
+    city: address.city,
+    provinceCode: address.provinceCode,
+    zip: address.postalCode,
+    countryCode: address.countryCode || "BR",
+    phone: address.phone || customer.phone,
+  });
+}
+
 function hasAsaasAddress(asaasCustomer = {}) {
   return Boolean(
     asaasCustomer.address &&
@@ -164,6 +184,10 @@ function buildCustomAttributes({
   externalReference,
   invoiceUrl,
   customer,
+  shippingAddress,
+  source,
+  paidAt,
+  paymentStatus,
 }) {
   return [
     asaasPaymentId
@@ -174,13 +198,30 @@ function buildCustomAttributes({
       : null,
     invoiceUrl ? { key: "asaas_invoice_url", value: invoiceUrl } : null,
     { key: "externalReference", value: externalReference },
+    source ? { key: "source", value: source } : null,
     customer?.cpfCnpj ? { key: "cpfCnpj", value: customer.cpfCnpj } : null,
+    customer?.name ? { key: "customer_name", value: customer.name } : null,
+    customer?.email ? { key: "customer_email", value: customer.email } : null,
     customer?.phone || customer?.mobilePhone
       ? {
           key: "customer_phone",
           value: customer.mobilePhone || customer.phone,
         }
       : null,
+    shippingAddress?.postalCode
+      ? { key: "shipping_postal_code", value: shippingAddress.postalCode }
+      : null,
+    shippingAddress?.number
+      ? { key: "shipping_number", value: shippingAddress.number }
+      : null,
+    shippingAddress?.neighborhood
+      ? {
+          key: "shipping_neighborhood",
+          value: shippingAddress.neighborhood,
+        }
+      : null,
+    paidAt ? { key: "paidAt", value: paidAt } : null,
+    paymentStatus ? { key: "paymentStatus", value: paymentStatus } : null,
   ].filter(Boolean);
 }
 
@@ -283,6 +324,165 @@ export async function findAsaasShopifyOrderByExternalReference(
     where: { externalReference },
     orderBy: { createdAt: "desc" },
   });
+}
+
+function normalizeVariantGid(variantId) {
+  const text = String(variantId || "");
+
+  if (text.startsWith("gid://shopify/ProductVariant/")) {
+    return text;
+  }
+
+  return `gid://shopify/ProductVariant/${text.replace(/\D/g, "")}`;
+}
+
+export async function getVerifiedShopifyCheckoutItems(items) {
+  const requestedItems = Array.isArray(items) ? items : [];
+  const variantIds = requestedItems.map((item) => normalizeVariantGid(item.variantId));
+
+  if (!variantIds.length) {
+    throw new Error("Checkout requires at least one item.");
+  }
+
+  const data = await shopifyGraphql(
+    `#graphql
+      query getCheckoutVariants($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            id
+            title
+            price
+            compareAtPrice
+            sku
+            product {
+              id
+              title
+              featuredImage {
+                url
+                altText
+              }
+            }
+            image {
+              url
+              altText
+            }
+          }
+        }
+      }`,
+    { ids: variantIds },
+  );
+
+  return data.nodes.map((node, index) => {
+    const requestedItem = requestedItems[index];
+
+    if (!node?.id) {
+      throw new Error(`Shopify variant not found: ${requestedItem.variantId}.`);
+    }
+
+    const quantity = Math.max(1, Number(requestedItem.quantity) || 1);
+    const price = Number(node.price);
+
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error(`Invalid Shopify variant price: ${node.id}.`);
+    }
+
+    return {
+      variantId: node.id,
+      quantity,
+      title:
+        requestedItem.title ||
+        node.product?.title ||
+        node.title ||
+        "Iron Air",
+      price,
+      compareAtPrice: node.compareAtPrice ? Number(node.compareAtPrice) : null,
+      image: node.image?.url || node.product?.featuredImage?.url || requestedItem.image || "",
+      sku: node.sku || requestedItem.sku || "",
+      productId: node.product?.id || requestedItem.productId || "",
+    };
+  });
+}
+
+export async function createDraftShopifyOrderForIronAirCheckout(payload) {
+  const verifiedItems = await getVerifiedShopifyCheckoutItems(payload.items);
+  const externalReference = payload.externalReference;
+  const shippingAddress = buildCheckoutShopifyAddress(
+    payload.shippingAddress,
+    payload.customer,
+  );
+  const billingAddress = buildCheckoutShopifyAddress(
+    payload.billingAddress || payload.shippingAddress,
+    payload.customer,
+  );
+  const lineItems = verifiedItems.map((item) => ({
+    variantId: item.variantId,
+    quantity: item.quantity,
+    customAttributes: [
+      { key: "externalReference", value: externalReference },
+      item.sku ? { key: "sku", value: item.sku } : null,
+    ].filter(Boolean),
+  }));
+  const customAttributes = buildCustomAttributes({
+    externalReference,
+    customer: payload.customer,
+    shippingAddress: payload.shippingAddress,
+    source: "ironair_custom_checkout",
+  });
+  const input = {
+    email: payload.customer.email,
+    shippingAddress,
+    billingAddress,
+    presentmentCurrencyCode: "BRL",
+    sourceName: getSourceName(),
+    taxExempt: true,
+    visibleToCustomer: false,
+    tags: buildOrderTags(),
+    note: buildOrderNote({ externalReference }),
+    customAttributes,
+    lineItems,
+  };
+
+  console.log("[SHOPIFY CUSTOM CHECKOUT DRAFT PAYLOAD]", {
+    input: sanitizePayloadForLog(input),
+  });
+
+  const data = await shopifyGraphql(
+    `#graphql
+      mutation createDraftOrder($input: DraftOrderInput!) {
+        draftOrderCreate(input: $input) {
+          draftOrder {
+            id
+            name
+            status
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    { input },
+  );
+
+  assertNoShopifyUserErrors(
+    "draftOrderCreate custom checkout",
+    data.draftOrderCreate.userErrors,
+  );
+
+  return {
+    draftOrder: data.draftOrderCreate.draftOrder,
+    items: verifiedItems,
+    value: verifiedItems.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0,
+    ),
+  };
 }
 
 export async function createDraftShopifyOrderForCheckout(
@@ -451,6 +651,8 @@ export async function attachAsaasPaymentToDraftOrder({
   externalReference,
   invoiceUrl,
   checkoutUrl,
+  customer,
+  shippingAddress,
 }) {
   const existingOrder = await prisma.asaasShopifyOrder.findFirst({
     where: {
@@ -495,6 +697,9 @@ export async function attachAsaasPaymentToDraftOrder({
           asaasCheckoutId,
           externalReference,
           invoiceUrl,
+          customer,
+          shippingAddress,
+          source: customer ? "ironair_custom_checkout" : undefined,
         }),
       },
     },
@@ -685,6 +890,8 @@ export async function completeDraftOrderForAsaasPayment(
             externalReference: mappedOrder.externalReference,
             invoiceUrl: mappedOrder.invoiceUrl,
             customer: effectiveCustomer,
+            paidAt: new Date().toISOString(),
+            paymentStatus: "PAID",
           }),
           ...buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer),
         ],

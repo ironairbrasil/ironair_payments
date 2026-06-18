@@ -1,9 +1,8 @@
 import {
   CHECKOUT_CORS_HEADERS,
   checkoutJson,
-  normalizeRealCheckoutPayload,
-  startCheckoutFlow,
 } from "../services/checkout-flow.server";
+import { createIronAirCheckout } from "../services/ironair-checkout.server";
 
 export async function loader({ request }) {
   if (request.method === "OPTIONS") {
@@ -40,29 +39,17 @@ export async function action({ request }) {
     );
   }
 
-  let payload;
-
   try {
-    payload = normalizeRealCheckoutPayload(await request.json());
-  } catch (error) {
-    return checkoutJson(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const checkout = await startCheckoutFlow(payload);
-    const paymentUrl = checkout.checkoutUrl;
+    const checkout = await createIronAirCheckout(await request.json());
 
     return checkoutJson({
-      ...checkout,
       success: true,
-      paymentUrl,
-      checkoutUrl: paymentUrl,
+      checkoutUrl: checkout.checkoutUrl,
+      checkoutId: checkout.checkoutId,
+      externalReference: checkout.externalReference,
+      draftOrderId: checkout.draftOrderId,
+      draftOrderName: checkout.draftOrderName,
+      reused: checkout.reused,
     });
   } catch (error) {
     return checkoutJson(
@@ -70,7 +57,7 @@ export async function action({ request }) {
         success: false,
         error: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 },
+      { status: 400 },
     );
   }
 }

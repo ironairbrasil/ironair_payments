@@ -148,6 +148,7 @@ function getCheckoutUrl(checkout) {
 export async function createAsaasCheckout({
   items,
   externalReference,
+  customerData,
   billingTypes = ["PIX", "CREDIT_CARD"],
 }) {
   const checkoutPayload = {
@@ -157,6 +158,7 @@ export async function createAsaasCheckout({
     externalReference,
     callback: getCheckoutCallbackUrls(),
     items,
+    ...(customerData ? { customerData } : {}),
   };
 
   console.log(
@@ -246,6 +248,60 @@ export async function createAsaasCheckoutPayment(payload) {
   }
 }
 
+export async function createAsaasCheckoutForCustomCheckout({
+  customer,
+  externalReference,
+  items,
+}) {
+  const checkoutItems = items.map((item) => ({
+    name: ASAAS_ITEM_NAME,
+    description: truncateAsaasText(
+      item.title || item.productHandle || getAsaasDescription(),
+      MAX_ASAAS_DESCRIPTION_LENGTH,
+    ),
+    quantity: Math.max(1, Number(item.quantity) || 1),
+    value: Number(item.price),
+  }));
+
+  const customerData = {
+    name: customer.name,
+    email: customer.email,
+    cpfCnpj: customer.cpfCnpj,
+    mobilePhone: customer.phone,
+  };
+
+  try {
+    const checkout = await createAsaasCheckout({
+      items: checkoutItems,
+      externalReference,
+      customerData,
+      billingTypes: ["PIX", "CREDIT_CARD", "BOLETO"],
+    });
+
+    return {
+      checkout,
+      checkoutUrl: checkout.checkoutUrl,
+    };
+  } catch (error) {
+    console.warn("[asaas] Custom checkout with boleto unavailable, retrying.", {
+      error: error instanceof Error ? error.message : String(error),
+      externalReference,
+    });
+  }
+
+  const checkout = await createAsaasCheckout({
+    items: checkoutItems,
+    externalReference,
+    customerData,
+    billingTypes: ["PIX", "CREDIT_CARD"],
+  });
+
+  return {
+    checkout,
+    checkoutUrl: checkout.checkoutUrl,
+  };
+}
+
 export async function getAsaasCustomer(customerId) {
   if (!customerId) {
     return null;
@@ -304,12 +360,12 @@ export async function handleAsaasWebhook(payload) {
 
   if (APPROVED_PAYMENT_EVENTS.has(event)) {
     const paymentId = payment?.id;
-    const asaasPayment = paymentId ? await getAsaasPayment(paymentId) : payment;
+    const asaasPayment =
+      paymentId && !payment?.externalReference
+        ? await getAsaasPayment(paymentId)
+        : payment;
     const asaasCustomerId =
       asaasPayment?.customer ?? payment?.customer ?? checkout?.customer;
-    const asaasCustomer = asaasCustomerId
-      ? await getAsaasCustomer(asaasCustomerId)
-      : null;
     const resolvedExternalReference =
       asaasPayment?.externalReference ??
       payment?.externalReference ??
@@ -318,11 +374,6 @@ export async function handleAsaasWebhook(payload) {
     console.log("[asaas] GET /payments/{id} response.", {
       paymentId,
       response: sanitizePayloadForLog(asaasPayment),
-    });
-
-    console.log("[asaas] GET /customers/{id} response.", {
-      customerId: asaasCustomerId,
-      response: sanitizePayloadForLog(asaasCustomer),
     });
 
     console.log("[asaas] Approved payment webhook:", {
@@ -339,7 +390,6 @@ export async function handleAsaasWebhook(payload) {
     await completeDraftOrderForAsaasPayment(paymentId, {
       asaasCheckoutId: checkout?.id,
       asaasCustomerId,
-      asaasCustomer,
       asaasPayment,
       externalReference: resolvedExternalReference,
     });
