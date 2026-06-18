@@ -90,14 +90,14 @@ body {
 }
 
 .ia-section {
-  margin-top: 28px;
+  margin-top: 34px;
 }
 
 .ia-section h1,
 .ia-section h2 {
-  margin: 0 0 4px;
+  margin: 0 0 14px;
   color: #111;
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.1;
 }
@@ -130,6 +130,13 @@ body {
 }
 
 .ia-grid.city {
+  margin-top: 10px;
+}
+
+.ia-delivery > .ia-field + .ia-field,
+.ia-delivery > .ia-field + .ia-grid,
+.ia-delivery > .ia-grid + .ia-field,
+.ia-delivery > .ia-grid + .ia-grid {
   margin-top: 10px;
 }
 
@@ -169,6 +176,11 @@ body {
 .ia-field select {
   appearance: none;
   cursor: pointer;
+}
+
+.ia-country select {
+  color: #111;
+  cursor: default;
 }
 
 .ia-field.has-error {
@@ -275,12 +287,19 @@ body {
   max-width: 460px;
 }
 
+.ia-products {
+  padding-bottom: 20px;
+}
+
 .ia-product {
   display: grid;
   grid-template-columns: 88px 1fr auto;
   align-items: center;
   gap: 20px;
-  padding-bottom: 20px;
+}
+
+.ia-product + .ia-product {
+  margin-top: 14px;
 }
 
 .ia-thumb {
@@ -322,6 +341,20 @@ body {
   margin: 0;
   font-size: 14px;
   font-weight: 500;
+}
+
+.ia-product em {
+  display: block;
+  margin-top: 4px;
+  color: #777;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.ia-summary-error {
+  margin-top: 14px;
+  color: #9f261d;
+  font-size: 13px;
 }
 
 .ia-lines {

@@ -57,24 +57,113 @@ const DEFAULT_ITEM = {
   image: "",
 };
 
+const STORE_ORIGIN = "https://ironair.com.br";
+
 export function links() {
   return [{ rel: "stylesheet", href: checkoutStyles }];
 }
 
+function decodeValue(value) {
+  let decoded = String(value || "").trim();
+
+  for (let index = 0; index < 2; index += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+
+  return decoded;
+}
+
 function parseCurrency(value, fallback = 0) {
-  const number = Number(String(value || "").replace(",", "."));
-  return Number.isFinite(number) ? number : fallback;
+  const raw = decodeValue(value);
+  if (!raw) return fallback;
+
+  const normalized = raw.replace(/[^\d.,-]/g, "");
+  const hasDecimalSeparator = /[,.]/.test(normalized);
+  const number = Number(normalized.replace(",", "."));
+
+  if (!Number.isFinite(number)) return fallback;
+  if (!hasDecimalSeparator && Number.isInteger(number) && number >= 1000) {
+    return number / 100;
+  }
+
+  return number;
+}
+
+function normalizeImageUrl(value) {
+  const image = decodeValue(value);
+
+  if (!image) return "";
+  if (image.startsWith("//")) return `https:${image}`;
+  if (image.startsWith("/")) return `${STORE_ORIGIN}${image}`;
+  if (/^https?:\/\//i.test(image)) return image;
+
+  return "";
+}
+
+function normalizeItem(item, index = 0) {
+  const quantity = Math.max(1, Number(item.quantity) || 1);
+  const price = parseCurrency(item.price, 0);
+
+  return {
+    variantId: decodeValue(item.variantId || item.id || ""),
+    productId: decodeValue(item.productId || ""),
+    title: decodeValue(item.title || DEFAULT_ITEM.title),
+    variantTitle: decodeValue(item.variantTitle || item.variant || item.options || ""),
+    quantity,
+    price,
+    compareAtPrice: item.compareAtPrice ? parseCurrency(item.compareAtPrice) : null,
+    image: normalizeImageUrl(item.image || item.featured_image || ""),
+    key: decodeValue(item.key || item.variantId || `item-${index}`),
+  };
+}
+
+function parseBracketItems(searchParams) {
+  const itemMap = new Map();
+
+  for (const [key, value] of searchParams.entries()) {
+    const match = key.match(/^items\[(\d+)\]\[([^\]]+)\]$/);
+    if (!match) continue;
+
+    const [, index, field] = match;
+    const current = itemMap.get(index) || {};
+    current[field] = value;
+    itemMap.set(index, current);
+  }
+
+  return [...itemMap.entries()]
+    .sort(([left], [right]) => Number(left) - Number(right))
+    .map(([, item], index) => normalizeItem(item, index));
+}
+
+function itemIsPayable(item) {
+  return Boolean(
+    item.variantId &&
+      item.title &&
+      Number(item.quantity) > 0 &&
+      Number(item.price) > 0,
+  );
 }
 
 function parseItems(searchParams) {
   const encodedItems = searchParams.get("items");
+  const bracketItems = parseBracketItems(searchParams);
+
+  if (bracketItems.length) {
+    return bracketItems;
+  }
 
   if (encodedItems) {
     try {
-      const parsedItems = JSON.parse(encodedItems);
+      const parsedItems = JSON.parse(decodeValue(encodedItems));
 
       if (Array.isArray(parsedItems) && parsedItems.length) {
-        return parsedItems;
+        return parsedItems.map((item, index) => normalizeItem(item, index));
       }
     } catch {
       // Fallback to single-item query params below.
@@ -83,25 +172,35 @@ function parseItems(searchParams) {
 
   return [
     {
-      variantId: searchParams.get("variantId") || DEFAULT_ITEM.variantId,
+      variantId: searchParams.get("variantId") || "",
       productId: searchParams.get("productId") || "",
-      title: searchParams.get("title") || DEFAULT_ITEM.title,
+      title: searchParams.get("title") || "",
       quantity: Math.max(1, Number(searchParams.get("quantity")) || 1),
-      price: parseCurrency(searchParams.get("price"), DEFAULT_ITEM.price),
+      price: parseCurrency(searchParams.get("price"), 0),
       compareAtPrice: searchParams.get("compareAtPrice")
         ? parseCurrency(searchParams.get("compareAtPrice"))
         : null,
-      image: searchParams.get("image") || DEFAULT_ITEM.image,
+      image: searchParams.get("image") || "",
     },
-  ];
+  ].map((item, index) => normalizeItem(item, index));
 }
 
 export async function loader({ request }) {
   const url = new URL(request.url);
-  const items = parseItems(url.searchParams);
+  const source = url.searchParams.get("source") || "";
+  const parsedItems = parseItems(url.searchParams);
+  const validItems = parsedItems.filter(itemIsPayable);
+  const shouldUseDefault = !source && !validItems.length;
+  const items = shouldUseDefault ? [DEFAULT_ITEM] : parsedItems;
+  const itemLoadError =
+    source === "cart" &&
+    (!validItems.length || validItems.length !== parsedItems.length)
+      ? "Não conseguimos carregar os itens do carrinho. Volte à loja e tente novamente."
+      : "";
 
   return {
     items,
+    itemLoadError,
     externalReference: url.searchParams.get("externalReference") || "",
   };
 }
@@ -172,7 +271,7 @@ function Field({
 }
 
 export default function IronAirCheckout() {
-  const { items, externalReference } = useLoaderData();
+  const { items, itemLoadError, externalReference } = useLoaderData();
   const [form, setForm] = useState({
     email: "",
     name: "",
@@ -274,6 +373,14 @@ export default function IronAirCheckout() {
     event.preventDefault();
     setFormError("");
 
+    if (itemLoadError || subtotal <= 0) {
+      setFormError(
+        itemLoadError ||
+          "Não conseguimos carregar os itens do carrinho. Volte à loja e tente novamente.",
+      );
+      return;
+    }
+
     if (!validateForm()) return;
 
     setLoading(true);
@@ -309,7 +416,7 @@ export default function IronAirCheckout() {
           countryCode: "BR",
           phone: onlyDigits(form.phone),
         },
-        items,
+        items: items.filter(itemIsPayable),
       };
       const response = await fetch("/api/checkout/create", {
         method: "POST",
@@ -329,8 +436,6 @@ export default function IronAirCheckout() {
       setLoading(false);
     }
   }
-
-  const primaryItem = items[0] || DEFAULT_ITEM;
 
   return (
     <main className="ia-checkout">
@@ -357,9 +462,8 @@ export default function IronAirCheckout() {
         </nav>
 
         <form className="ia-form" onSubmit={submitCheckout} noValidate>
-          <section className="ia-section">
-            <h1>Contato</h1>
-            <p>Informe seu e-mail para receber atualizações do pedido.</p>
+          <section className="ia-section ia-delivery">
+            <h1>Entrega</h1>
             <Field
               label="E-mail"
               name="email"
@@ -370,32 +474,24 @@ export default function IronAirCheckout() {
             >
               {form.email && !errors.email ? <Check className="ia-valid" size={22} /> : null}
             </Field>
-            <label className="ia-check">
-              <input
-                checked={form.newsletter}
-                type="checkbox"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    newsletter: event.target.checked,
-                  }))
-                }
-              />
-              <span>Quero receber novidades e ofertas da Iron Air Brasil</span>
-            </label>
-          </section>
 
-          <section className="ia-section">
-            <h2>Dados pessoais</h2>
-            <p>Precisamos dessas informações para emitir sua nota fiscal.</p>
-            <div className="ia-grid two">
-              <Field
-                label="Nome completo"
-                name="name"
-                value={form.name}
-                onChange={updateField}
-                error={errors.name}
-              />
+            <label className="ia-field ia-select ia-country">
+              <span>País/Região</span>
+              <select defaultValue="BR" disabled>
+                <option value="BR">Brasil</option>
+              </select>
+              <ChevronDown size={18} />
+            </label>
+
+            <Field
+              label="Nome completo"
+              name="name"
+              value={form.name}
+              onChange={updateField}
+              error={errors.name}
+            />
+
+            <div className="ia-grid two compact">
               <Field
                 label="CPF"
                 name="cpfCnpj"
@@ -404,20 +500,16 @@ export default function IronAirCheckout() {
                 error={errors.cpfCnpj}
                 inputMode="numeric"
               />
+              <Field
+                label="Telefone / WhatsApp"
+                name="phone"
+                value={form.phone}
+                onChange={updateField}
+                error={errors.phone}
+                inputMode="tel"
+              />
             </div>
-            <Field
-              label="Telefone / WhatsApp"
-              name="phone"
-              value={form.phone}
-              onChange={updateField}
-              error={errors.phone}
-              inputMode="tel"
-            />
-          </section>
 
-          <section className="ia-section">
-            <h2>Endereço de entrega</h2>
-            <p>Enviaremos para o endereço abaixo.</p>
             <div className="ia-grid cep">
               <Field
                 label="CEP"
@@ -506,9 +598,14 @@ export default function IronAirCheckout() {
             </label>
           </section>
 
+          {itemLoadError ? <div className="ia-error">{itemLoadError}</div> : null}
           {formError ? <div className="ia-error">{formError}</div> : null}
 
-          <button className="ia-submit" type="submit" disabled={loading}>
+          <button
+            className="ia-submit"
+            type="submit"
+            disabled={loading || Boolean(itemLoadError) || subtotal <= 0}
+          >
             <span>{loading ? "Criando pagamento..." : "Continuar para pagamento"}</span>
             <ArrowRight size={28} />
           </button>
@@ -522,17 +619,29 @@ export default function IronAirCheckout() {
 
       <aside className="ia-right">
         <div className="ia-summary">
-          <div className="ia-product">
-            <div className="ia-thumb">
-              {primaryItem.image ? (
-                <img src={primaryItem.image} alt={primaryItem.title} />
-              ) : (
-                <span>IRON AIR</span>
-              )}
-              <b>{primaryItem.quantity || 1}</b>
-            </div>
-            <p>{primaryItem.title}</p>
-            <strong>{formatMoney((Number(primaryItem.price) || 0) * (primaryItem.quantity || 1))}</strong>
+          <div className="ia-products">
+            {items.map((item, index) => (
+              <div className="ia-product" key={item.key || `${item.variantId}-${index}`}>
+                <div className="ia-thumb">
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} />
+                  ) : (
+                    <span>IRON AIR</span>
+                  )}
+                  <b>{item.quantity || 1}</b>
+                </div>
+                <div>
+                  <p>{item.title || DEFAULT_ITEM.title}</p>
+                  {item.variantTitle ? <em>{item.variantTitle}</em> : null}
+                </div>
+                <strong>{formatMoney((Number(item.price) || 0) * (item.quantity || 1))}</strong>
+              </div>
+            ))}
+            {itemLoadError ? (
+              <div className="ia-summary-error">
+                Não conseguimos carregar os itens do carrinho.
+              </div>
+            ) : null}
           </div>
 
           <div className="ia-lines">
