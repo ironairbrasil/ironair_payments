@@ -23,7 +23,7 @@ body {
 }
 
 .ia-left {
-  padding: 0 40px 76px 50px;
+  padding: 0 46px 70px 50px;
 }
 
 .ia-right {
@@ -86,31 +86,31 @@ body {
 }
 
 .ia-form {
-  max-width: 748px;
+  max-width: 690px;
 }
 
 .ia-section {
-  margin-top: 34px;
+  margin-top: 28px;
 }
 
 .ia-section h1,
 .ia-section h2 {
   margin: 0 0 4px;
   color: #111;
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 800;
   line-height: 1.1;
 }
 
 .ia-section p {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: #666;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .ia-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ia-grid.two {
@@ -118,25 +118,25 @@ body {
 }
 
 .ia-grid.cep {
-  grid-template-columns: 290px 1fr;
+  grid-template-columns: 270px 1fr;
 }
 
 .ia-grid.city {
-  grid-template-columns: 1.05fr 1.1fr 188px;
+  grid-template-columns: 1fr 1.04fr 170px;
 }
 
 .ia-grid.compact {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .ia-grid.city {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .ia-field {
   position: relative;
   display: block;
-  height: 56px;
+  height: 50px;
   border: 1px solid #d8d8d8;
   border-radius: 5px;
   background: #fff;
@@ -145,10 +145,10 @@ body {
 
 .ia-field span {
   position: absolute;
-  top: 10px;
+  top: 8px;
   left: 12px;
   color: #686868;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   pointer-events: none;
 }
@@ -160,7 +160,7 @@ body {
   border: 0;
   outline: 0;
   background: transparent;
-  padding: 24px 40px 8px 12px;
+  padding: 21px 38px 7px 12px;
   color: #141414;
   font: inherit;
   font-size: 14px;
@@ -178,7 +178,7 @@ body {
 .ia-field small {
   position: absolute;
   left: 0;
-  top: 59px;
+  top: 53px;
   color: #c0362c;
   font-size: 11px;
 }
@@ -186,14 +186,14 @@ body {
 .ia-valid {
   position: absolute;
   right: 18px;
-  top: 18px;
+  top: 15px;
   color: #19943a;
 }
 
 .ia-cep {
   position: absolute;
   right: 11px;
-  top: 17px;
+  top: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -207,7 +207,7 @@ body {
 
 .ia-select svg {
   position: absolute;
-  top: 19px;
+  top: 16px;
   right: 17px;
   color: #777;
   pointer-events: none;
@@ -217,21 +217,21 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 10px;
   color: #111;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .ia-check input {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   accent-color: #111;
 }
 
 .ia-submit {
   width: 100%;
-  height: 58px;
-  margin-top: 30px;
+  height: 54px;
+  margin-top: 26px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
