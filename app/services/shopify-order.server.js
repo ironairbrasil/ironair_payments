@@ -230,6 +230,17 @@ function buildCustomAttributes({
   ].filter(Boolean);
 }
 
+function buildBrazilTaxLocalizedFields(customer = {}) {
+  return customer?.cpfCnpj
+    ? [
+        {
+          key: "TAX_CREDENTIAL_BR",
+          value: customer.cpfCnpj,
+        },
+      ]
+    : undefined;
+}
+
 function buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer) {
   return [
     asaasCustomerId
@@ -444,6 +455,7 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
     tags: buildOrderTags(),
     note: buildOrderNote({ externalReference }),
     customAttributes,
+    localizedFields: buildBrazilTaxLocalizedFields(payload.customer),
     lineItems,
   };
 
@@ -706,6 +718,7 @@ export async function attachAsaasPaymentToDraftOrder({
           shippingAddress,
           source: customer ? "ironair_custom_checkout" : undefined,
         }),
+        localizedFields: buildBrazilTaxLocalizedFields(customer),
       },
     },
   );
@@ -900,6 +913,7 @@ export async function completeDraftOrderForAsaasPayment(
           }),
           ...buildAsaasCustomerAttributes(asaasCustomerId, asaasCustomer),
         ],
+        localizedFields: buildBrazilTaxLocalizedFields(effectiveCustomer),
       };
 
       console.log("[SHOPIFY DRAFT ORDER UPDATE PAYLOAD]", {
