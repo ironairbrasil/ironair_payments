@@ -19,22 +19,74 @@ function handleFromTitle(title) {
     .replace(/^-+|-+$/g, "") || "iron-air";
 }
 
+function parseCartItems(searchParams) {
+  const items = [];
+
+  for (const [key, value] of searchParams.entries()) {
+    const match = key.match(/^items\[(\d+)\]\[(variantId|quantity|title|image|price|productHandle)\]$/);
+    if (!match) continue;
+
+    const index = Number(match[1]);
+    const field = match[2];
+    items[index] = {
+      ...(items[index] || {}),
+      [field]: value,
+    };
+  }
+
+  return items
+    .filter(Boolean)
+    .map((item) => {
+      const quantity = Math.max(1, Math.floor(numberFromParam(item.quantity, 1)));
+      const price = numberFromParam(item.price, 0);
+      const title = item.title || "Iron Air";
+
+      return {
+        variantId: cleanVariantId(item.variantId),
+        quantity,
+        title,
+        image: item.image || "",
+        productHandle: item.productHandle || handleFromTitle(title),
+        price,
+        linePrice: Number((price * quantity).toFixed(2)),
+      };
+    });
+}
+
 export async function loader({ request }) {
   const url = new URL(request.url);
+  const cartItems = parseCartItems(url.searchParams);
   const variantId = cleanVariantId(url.searchParams.get("variantId"));
   const quantity = Math.max(1, Math.floor(numberFromParam(url.searchParams.get("quantity"), 1)));
   const price = numberFromParam(url.searchParams.get("price"), 0);
-
-  return Response.json({
+  const title = url.searchParams.get("title") || "Iron Air";
+  const singleItem = {
     variantId,
     quantity,
-    title: url.searchParams.get("title") || "Iron Air",
+    title,
     image: url.searchParams.get("image") || "",
     productHandle:
       url.searchParams.get("productHandle") ||
       url.searchParams.get("handle") ||
-      handleFromTitle(url.searchParams.get("title") || "Iron Air"),
+      handleFromTitle(title),
     price,
+    linePrice: Number((price * quantity).toFixed(2)),
+  };
+  const items = cartItems.length ? cartItems : variantId ? [singleItem] : [];
+  const total = Number(
+    items.reduce((sum, item) => sum + Number(item.linePrice || 0), 0).toFixed(2),
+  );
+
+  return Response.json({
+    source: url.searchParams.get("source") || (cartItems.length ? "cart" : "product"),
+    variantId,
+    quantity,
+    title,
+    image: singleItem.image,
+    productHandle: singleItem.productHandle,
+    price,
+    items,
+    total,
   });
 }
 
@@ -65,9 +117,10 @@ function buildCheckoutPayload(product, form) {
   const neighborhood = form.get("neighborhood");
   const city = form.get("city");
   const province = form.get("province");
-  const quantity = Math.max(1, Number(product.quantity) || 1);
-  const price = Number(product.price || 0);
-  const total = Number((price * quantity).toFixed(2));
+  const items = Array.isArray(product.items) ? product.items : [];
+  const total = Number(
+    items.reduce((sum, item) => sum + Number(item.linePrice || 0), 0).toFixed(2),
+  );
   const { firstName, lastName } = splitName(name);
 
   return {
@@ -95,28 +148,27 @@ function buildCheckoutPayload(product, form) {
       country: "BR",
       phone,
     },
-    items: [
-      {
-        variantGid: product.variantId,
-        quantity,
-        title: product.title,
-        productHandle: product.productHandle,
-        price,
-        linePrice: total,
-        image: product.image,
-      },
-    ],
+    items: items.map((item) => ({
+      variantGid: item.variantId,
+      quantity: item.quantity,
+      title: item.title,
+      productHandle: item.productHandle,
+      price: item.price,
+      linePrice: item.linePrice,
+      image: item.image,
+    })),
   };
 }
 
 export default function CheckoutIronAir() {
   const product = useLoaderData();
   const [status, setStatus] = useState({ loading: false, error: "" });
+  const items = Array.isArray(product.items) ? product.items : [];
   const total = useMemo(
-    () => Number((Number(product.price || 0) * Number(product.quantity || 1)).toFixed(2)),
-    [product.price, product.quantity],
+    () => Number(items.reduce((sum, item) => sum + Number(item.linePrice || 0), 0).toFixed(2)),
+    [items],
   );
-  const canCheckout = product.variantId && product.price > 0;
+  const canCheckout = items.length > 0 && items.every((item) => item.variantId && item.price > 0 && item.quantity > 0);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -126,7 +178,7 @@ export default function CheckoutIronAir() {
 
     try {
       const payload = buildCheckoutPayload(
-        { ...product, price: Number(product.price), quantity: Number(product.quantity) },
+        product,
         new FormData(event.currentTarget),
       );
       const response = await fetch("/api/checkout/create", {
@@ -166,21 +218,27 @@ export default function CheckoutIronAir() {
         <div style={styles.brand}>Iron Air Brasil</div>
         <div style={styles.grid}>
           <section style={styles.summary}>
-            {product.image ? (
-              <img src={product.image} alt={product.title} style={styles.image} />
+            {items[0]?.image ? (
+              <img src={items[0].image} alt={items[0].title} style={styles.image} />
             ) : null}
             <div>
               <h1 style={styles.title}>Finalize sua compra</h1>
               <p style={styles.subtitle}>Confira o produto e preencha seus dados.</p>
             </div>
-            <div style={styles.productLine}>
-              <div>
-                <strong>{product.title}</strong>
-                <span style={styles.muted}>Quantidade: {product.quantity}</span>
+            {items.map((item, index) => (
+              <div style={styles.productLine} key={`${item.variantId}-${index}`}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span style={styles.muted}>Quantidade: {item.quantity}</span>
+                </div>
+                <strong>{currency(item.linePrice)}</strong>
               </div>
+            ))}
+            <div style={styles.productLine}>
+              <strong>Total</strong>
               <strong>{currency(total)}</strong>
             </div>
-            <div style={styles.variant}>{product.variantId || "Variante nao informada"}</div>
+            <div style={styles.variant}>{items[0]?.variantId || "Variante nao informada"}</div>
           </section>
 
           <form style={styles.form} onSubmit={handleSubmit}>
