@@ -447,7 +447,7 @@ export default function IronAirCheckout() {
             </div>
             <div className="ia-grid two compact">
               <Field
-                label="Numero"
+                label="Número"
                 name="number"
                 value={form.number}
                 onChange={updateField}
@@ -515,7 +515,7 @@ export default function IronAirCheckout() {
 
           <div className="ia-protected">
             <ShieldCheck size={18} />
-            Seus dados estao protegidos com criptografia de ponta a ponta.
+            Seus dados estão protegidos com criptografia de ponta a ponta.
           </div>
         </form>
       </section>
@@ -542,7 +542,7 @@ export default function IronAirCheckout() {
             </div>
             <div>
               <span>Frete</span>
-              <strong className="muted">Gratis</strong>
+              <strong className="muted">Grátis</strong>
             </div>
           </div>
 
@@ -615,7 +615,7 @@ export default function IronAirCheckout() {
           <CreditCard size={24} />
           <p>
             <strong>Parcele em até 12x</strong>
-            <span>No cartao de credito</span>
+            <span>No cartão de crédito</span>
           </p>
         </div>
         <div>
