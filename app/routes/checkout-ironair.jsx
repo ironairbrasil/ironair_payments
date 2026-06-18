@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
 
 import checkoutStyles from "../styles/checkout-ironair.css?url";
@@ -419,6 +419,7 @@ export default function IronAirCheckout() {
   const [formError, setFormError] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
   const [pixPayment, setPixPayment] = useState(null);
+  const [pixStatus, setPixStatus] = useState("");
   const subtotal = useMemo(
     () =>
       items.reduce(
@@ -524,6 +525,7 @@ export default function IronAirCheckout() {
     setFormError("");
     setPaymentNotice("");
     setPixPayment(null);
+    setPixStatus("");
 
     if (itemLoadError || subtotal <= 0) {
       setFormError(
@@ -606,8 +608,10 @@ export default function IronAirCheckout() {
           encodedImage: data.pix.encodedImage,
           expirationDate: data.pix.expirationDate,
         });
+        setPixStatus(data.paymentStatus || "PENDING");
       } else {
         setPixPayment(null);
+        setPixStatus("");
         setPaymentNotice("Pagamento enviado para processamento.");
       }
     } catch (error) {
@@ -622,6 +626,43 @@ export default function IronAirCheckout() {
 
     await navigator.clipboard.writeText(pixPayment.payload);
   }
+
+  useEffect(() => {
+    if (!pixPayment?.paymentId || pixStatus === "PAID") {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkPaymentStatus() {
+      try {
+        const params = new URLSearchParams({
+          paymentId: pixPayment.paymentId,
+          externalReference: pixPayment.externalReference || "",
+        });
+        const response = await fetch(`/api/checkout/status?${params}`);
+        const data = await response.json();
+
+        if (cancelled || !data.success) return;
+
+        setPixStatus(data.paid ? "PAID" : data.status || "PENDING");
+
+        if (data.paid) {
+          setPaymentNotice("Pagamento confirmado. Seu pedido foi criado na Shopify.");
+        }
+      } catch {
+        // Keep polling; the webhook may still finish the order.
+      }
+    }
+
+    checkPaymentStatus();
+    const interval = window.setInterval(checkPaymentStatus, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [pixPayment, pixStatus]);
 
   return (
     <main className="ia-checkout">
@@ -860,10 +901,11 @@ export default function IronAirCheckout() {
                   {pixPayment ? (
                     <section className="ia-pix-result" aria-live="polite">
                       <div>
-                        <h2>Pix gerado</h2>
+                        <h2>{pixStatus === "PAID" ? "Pix confirmado" : "Pix gerado"}</h2>
                         <p>
-                          Escaneie o QR Code ou copie o código Pix. Assim que o pagamento
-                          for confirmado, seu pedido será liberado.
+                          {pixStatus === "PAID"
+                            ? "Pagamento confirmado. Seu pedido será atualizado em instantes."
+                            : "Escaneie o QR Code ou copie o código Pix. Assim que o pagamento for confirmado, seu pedido será liberado."}
                         </p>
                       </div>
                       {pixPayment.encodedImage ? (

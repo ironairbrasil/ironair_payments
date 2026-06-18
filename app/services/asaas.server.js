@@ -22,6 +22,7 @@ const APPROVED_PAYMENT_EVENTS = new Set([
   "PAYMENT_CONFIRMED",
   "CHECKOUT_PAID",
 ]);
+const APPROVED_PAYMENT_STATUSES = new Set(["RECEIVED", "CONFIRMED"]);
 const ASAAS_ITEM_NAME = "Iron Air";
 const MAX_ASAAS_DESCRIPTION_LENGTH = 500;
 
@@ -480,10 +481,59 @@ export async function getAsaasPayment(paymentId) {
   return requestAsaas(`/payments/${paymentId}`);
 }
 
+export function isAsaasPaymentApproved(payment) {
+  return APPROVED_PAYMENT_STATUSES.has(String(payment?.status || "").toUpperCase());
+}
+
+function getWebhookPayment(payload) {
+  return payload?.payment || payload?.object || payload?.data?.payment || null;
+}
+
+function getWebhookCheckout(payload) {
+  return payload?.checkout || payload?.data?.checkout || null;
+}
+
+function getWebhookPaymentId(payload, payment) {
+  return (
+    payment?.id ||
+    payload?.paymentId ||
+    payload?.payment_id ||
+    payload?.data?.paymentId ||
+    payload?.data?.payment_id ||
+    null
+  );
+}
+
+function getWebhookCheckoutId(payload, checkout) {
+  return (
+    checkout?.id ||
+    payload?.checkoutId ||
+    payload?.checkout_id ||
+    payload?.data?.checkoutId ||
+    payload?.data?.checkout_id ||
+    null
+  );
+}
+
+function getWebhookExternalReference(payload, payment, checkout) {
+  return (
+    payment?.externalReference ||
+    checkout?.externalReference ||
+    payload?.externalReference ||
+    payload?.external_reference ||
+    payload?.data?.externalReference ||
+    payload?.data?.external_reference ||
+    null
+  );
+}
+
 export async function handleAsaasWebhook(payload) {
   const event = payload?.event;
-  const payment = payload?.payment;
-  const checkout = payload?.checkout;
+  const payment = getWebhookPayment(payload);
+  const checkout = getWebhookCheckout(payload);
+  const paymentId = getWebhookPaymentId(payload, payment);
+  const checkoutId = getWebhookCheckoutId(payload, checkout);
+  const externalReference = getWebhookExternalReference(payload, payment, checkout);
 
   if (!event || typeof event !== "string") {
     throw new Error("Invalid Asaas webhook payload: missing event.");
@@ -500,28 +550,27 @@ export async function handleAsaasWebhook(payload) {
   const result = {
     ok: true,
     event,
-    paymentId: payment?.id,
-    checkoutId: checkout?.id,
+    paymentId,
+    checkoutId,
     status: payment?.status ?? checkout?.status,
     value: payment?.value,
     customer: payment?.customer ?? checkout?.customer,
-    externalReference: payment?.externalReference ?? checkout?.externalReference,
+    externalReference,
   };
 
   console.log("[asaas] Raw webhook payload received.", payload);
   console.log("[asaas] Webhook IDs received.", {
     event,
-    paymentId: payment?.id,
+    paymentId,
     paymentCustomer: payment?.customer,
-    checkoutId: checkout?.id,
+    checkoutId,
     checkoutCustomer: checkout?.customer,
     status: payment?.status ?? checkout?.status,
     value: payment?.value,
-    externalReference: payment?.externalReference ?? checkout?.externalReference,
+    externalReference,
   });
 
-  if (APPROVED_PAYMENT_EVENTS.has(event)) {
-    const paymentId = payment?.id;
+  if (APPROVED_PAYMENT_EVENTS.has(event) || isAsaasPaymentApproved(payment)) {
     const asaasPayment =
       paymentId && !payment?.externalReference
         ? await getAsaasPayment(paymentId)
@@ -530,8 +579,7 @@ export async function handleAsaasWebhook(payload) {
       asaasPayment?.customer ?? payment?.customer ?? checkout?.customer;
     const resolvedExternalReference =
       asaasPayment?.externalReference ??
-      payment?.externalReference ??
-      checkout?.externalReference;
+      externalReference;
 
     console.log("[asaas] GET /payments/{id} response.", {
       paymentId,
@@ -540,7 +588,7 @@ export async function handleAsaasWebhook(payload) {
 
     console.log("[asaas] Approved payment webhook:", {
       paymentId,
-      checkoutId: checkout?.id,
+      checkoutId,
       status: asaasPayment?.status ?? payment?.status ?? checkout?.status,
       value: asaasPayment?.value ?? payment?.value,
       customer: asaasCustomerId,
@@ -550,7 +598,7 @@ export async function handleAsaasWebhook(payload) {
 
     console.log("[SHOPIFY ORDER READY]");
     await completeDraftOrderForAsaasPayment(paymentId, {
-      asaasCheckoutId: checkout?.id,
+      asaasCheckoutId: checkoutId,
       asaasCustomerId,
       asaasPayment,
       externalReference: resolvedExternalReference,
