@@ -59,7 +59,7 @@ function sanitizeForLog(value) {
 
 export function normalizeIronAirCheckoutPayload(payload) {
   if (!payload || typeof payload !== "object") {
-    throw new Error("Payload invalido.");
+    throw new Error("Payload inválido.");
   }
 
   const customer = payload.customer || {};
@@ -73,20 +73,20 @@ export function normalizeIronAirCheckoutPayload(payload) {
   };
 
   if (!EMAIL_PATTERN.test(normalizedCustomer.email)) {
-    throw new Error("Email invalido.");
+    throw new Error("Email inválido.");
   }
 
   if (normalizedCustomer.cpfCnpj.length < 11) {
-    throw new Error("CPF invalido.");
+    throw new Error("CPF inválido.");
   }
 
   if (normalizedCustomer.phone.length < 10) {
-    throw new Error("Telefone invalido.");
+    throw new Error("Telefone inválido.");
   }
 
   const normalizedShippingAddress = {
     postalCode: onlyDigits(requireText(shippingAddress, "postalCode", "CEP")),
-    address1: requireText(shippingAddress, "address1", "endereco"),
+    address1: requireText(shippingAddress, "address1", "endereço"),
     number: requireText(shippingAddress, "number", "numero"),
     complement: String(shippingAddress.complement || "").trim(),
     neighborhood: requireText(shippingAddress, "neighborhood", "bairro"),
@@ -97,11 +97,11 @@ export function normalizeIronAirCheckoutPayload(payload) {
   };
 
   if (normalizedShippingAddress.postalCode.length !== 8) {
-    throw new Error("CEP invalido.");
+    throw new Error("CEP inválido.");
   }
 
   if (!UF_PATTERN.test(normalizedShippingAddress.provinceCode)) {
-    throw new Error("Estado/UF invalido.");
+    throw new Error("Estado/UF inválido.");
   }
 
   const normalizedBillingAddress = {

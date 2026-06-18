@@ -50,7 +50,7 @@ const BRAZIL_STATES = [
 
 const DEFAULT_ITEM = {
   variantId: "gid://shopify/ProductVariant/1234567890",
-  title: "Borrifador de Agua Pressurizado",
+  title: "Borrifador de Água Pressurizado",
   quantity: 1,
   price: 79,
   compareAtPrice: null,
@@ -217,7 +217,7 @@ export default function IronAirCheckout() {
     const cep = onlyDigits(form.postalCode);
 
     if (cep.length !== 8) {
-      setErrors((current) => ({ ...current, postalCode: "Informe um CEP valido." }));
+      setErrors((current) => ({ ...current, postalCode: "Informe um CEP válido." }));
       return;
     }
 
@@ -242,7 +242,7 @@ export default function IronAirCheckout() {
     } catch {
       setErrors((current) => ({
         ...current,
-        postalCode: "Nao foi possivel buscar o CEP.",
+        postalCode: "Não foi possível buscar o CEP.",
       }));
     } finally {
       setCepLoading(false);
@@ -253,17 +253,17 @@ export default function IronAirCheckout() {
     const nextErrors = {};
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      nextErrors.email = "Informe um e-mail valido.";
+      nextErrors.email = "Informe um e-mail válido.";
     }
     if (!form.name.trim()) nextErrors.name = "Informe seu nome completo.";
-    if (onlyDigits(form.cpfCnpj).length !== 11) nextErrors.cpfCnpj = "CPF invalido.";
-    if (onlyDigits(form.phone).length < 10) nextErrors.phone = "Telefone invalido.";
-    if (onlyDigits(form.postalCode).length !== 8) nextErrors.postalCode = "CEP invalido.";
-    if (!form.address1.trim()) nextErrors.address1 = "Informe o endereco.";
+    if (onlyDigits(form.cpfCnpj).length !== 11) nextErrors.cpfCnpj = "CPF inválido.";
+    if (onlyDigits(form.phone).length < 10) nextErrors.phone = "Telefone inválido.";
+    if (onlyDigits(form.postalCode).length !== 8) nextErrors.postalCode = "CEP inválido.";
+    if (!form.address1.trim()) nextErrors.address1 = "Informe o endereço.";
     if (!form.number.trim()) nextErrors.number = "Informe o numero.";
     if (!form.neighborhood.trim()) nextErrors.neighborhood = "Informe o bairro.";
     if (!form.city.trim()) nextErrors.city = "Informe a cidade.";
-    if (!/^[A-Z]{2}$/.test(form.provinceCode)) nextErrors.provinceCode = "UF invalida.";
+    if (!/^[A-Z]{2}$/.test(form.provinceCode)) nextErrors.provinceCode = "UF inválida.";
 
     setErrors(nextErrors);
 
@@ -319,7 +319,7 @@ export default function IronAirCheckout() {
       const data = await response.json();
 
       if (!response.ok || !data.success || !data.checkoutUrl) {
-        throw new Error(data.error || "Nao foi possivel criar o pagamento.");
+        throw new Error(data.error || "Não foi possível criar o pagamento.");
       }
 
       window.location.assign(data.checkoutUrl);
@@ -349,17 +349,17 @@ export default function IronAirCheckout() {
         <nav className="ia-breadcrumb" aria-label="Etapas do checkout">
           <span>Carrinho</span>
           <ChevronRight size={17} />
-          <strong>Informacoes</strong>
+          <strong>Informações</strong>
           <ChevronRight size={17} />
           <span>Pagamento</span>
           <ChevronRight size={17} />
-          <span>Revisao</span>
+          <span>Revisão</span>
         </nav>
 
         <form className="ia-form" onSubmit={submitCheckout} noValidate>
           <section className="ia-section">
             <h1>Contato</h1>
-            <p>Informe seu e-mail para receber atualizacoes do pedido.</p>
+            <p>Informe seu e-mail para receber atualizações do pedido.</p>
             <Field
               label="E-mail"
               name="email"
@@ -387,7 +387,7 @@ export default function IronAirCheckout() {
 
           <section className="ia-section">
             <h2>Dados pessoais</h2>
-            <p>Precisamos dessas informacoes para emitir sua nota fiscal.</p>
+            <p>Precisamos dessas informações para emitir sua nota fiscal.</p>
             <div className="ia-grid two">
               <Field
                 label="Nome completo"
@@ -416,8 +416,8 @@ export default function IronAirCheckout() {
           </section>
 
           <section className="ia-section">
-            <h2>Endereco de entrega</h2>
-            <p>Enviaremos para o endereco abaixo.</p>
+            <h2>Endereço de entrega</h2>
+            <p>Enviaremos para o endereço abaixo.</p>
             <div className="ia-grid cep">
               <Field
                 label="CEP"
@@ -438,7 +438,7 @@ export default function IronAirCheckout() {
                 </button>
               </Field>
               <Field
-                label="Endereco"
+                label="Endereço"
                 name="address1"
                 value={form.address1}
                 onChange={updateField}
@@ -502,7 +502,7 @@ export default function IronAirCheckout() {
                   }))
                 }
               />
-              <span>Salvar endereco para proximas compras</span>
+              <span>Salvar endereço para próximas compras</span>
             </label>
           </section>
 
@@ -552,12 +552,12 @@ export default function IronAirCheckout() {
           </div>
 
           <section className="ia-payment">
-            <h3>Metodo de pagamento</h3>
+            <h3>Método de pagamento</h3>
             <div className="ia-payment-card">
               <div className="ia-asaas">ASAAS</div>
               <div>
                 <strong>Pagar com Asaas</strong>
-                <span>Boleto, Pix, Cartao e mais</span>
+                <span>Boleto, Pix, Cartão e mais</span>
               </div>
               <i />
             </div>
@@ -582,14 +582,14 @@ export default function IronAirCheckout() {
               <Truck size={22} />
               <p>
                 <strong>Pedido com rastreamento</strong>
-                <span>Voce recebera atualizacoes por e-mail e WhatsApp</span>
+                <span>Você receberá atualizações por e-mail e WhatsApp</span>
               </p>
             </div>
             <div>
               <Headphones size={22} />
               <p>
                 <strong>Suporte humanizado</strong>
-                <span>Atendimento rapido e dedicado</span>
+                <span>Atendimento rápido e dedicado</span>
               </p>
             </div>
           </div>
@@ -600,7 +600,7 @@ export default function IronAirCheckout() {
         <div>
           <Truck size={24} />
           <p>
-            <strong>Frete gratis</strong>
+            <strong>Frete grátis</strong>
             <span>Para todo o Brasil</span>
           </p>
         </div>
@@ -608,20 +608,20 @@ export default function IronAirCheckout() {
           <ShieldCheck size={24} />
           <p>
             <strong>Enviamos para todo Brasil</strong>
-            <span>Com codigo de rastreio</span>
+            <span>Com código de rastreio</span>
           </p>
         </div>
         <div>
           <CreditCard size={24} />
           <p>
-            <strong>Parcele em ate 12x</strong>
+            <strong>Parcele em até 12x</strong>
             <span>No cartao de credito</span>
           </p>
         </div>
         <div>
           <Undo2 size={24} />
           <p>
-            <strong>7 dias para devolucao</strong>
+            <strong>7 dias para devolução</strong>
             <span>Ou reembolso total</span>
           </p>
         </div>
