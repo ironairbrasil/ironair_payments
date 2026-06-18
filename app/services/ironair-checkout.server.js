@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import {
+  createAsaasCreditCardPaymentForCustomCheckout,
   createAsaasPixPaymentForCustomCheckout,
   getAsaasPixQrCode,
 } from "./asaas.server";
@@ -14,6 +15,7 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UF_PATTERN = /^[A-Z]{2}$/;
+const PAYMENT_METHODS = new Set(["PIX", "CREDIT_CARD"]);
 
 function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
@@ -118,6 +120,9 @@ export function normalizeIronAirCheckoutPayload(payload) {
     phone: normalizedCustomer.phone,
   };
   const items = Array.isArray(payload.items) ? payload.items : [];
+  const paymentMethod = PAYMENT_METHODS.has(payload.paymentMethod)
+    ? payload.paymentMethod
+    : "PIX";
 
   if (!items.length) {
     throw new Error("Carrinho vazio.");
@@ -136,30 +141,59 @@ export function normalizeIronAirCheckoutPayload(payload) {
     };
   });
 
-  return {
+  const normalizedPayload = {
     externalReference:
       String(payload.externalReference || "").trim() ||
       `ironair_${Date.now()}_${crypto.randomUUID()}`,
+    paymentMethod,
     customer: normalizedCustomer,
     shippingAddress: normalizedShippingAddress,
     billingAddress: normalizedBillingAddress,
     items: normalizedItems,
   };
+
+  if (paymentMethod === "CREDIT_CARD") {
+    const creditCard = payload.creditCard || {};
+    const expiryMonth = onlyDigits(requireText(creditCard, "expiryMonth", "mês de validade"));
+    const expiryYear = onlyDigits(requireText(creditCard, "expiryYear", "ano de validade"));
+
+    normalizedPayload.creditCard = {
+      holderName: requireText(creditCard, "holderName", "nome no cartão"),
+      number: onlyDigits(requireText(creditCard, "number", "número do cartão")),
+      expiryMonth: expiryMonth.padStart(2, "0"),
+      expiryYear: expiryYear.length === 2 ? `20${expiryYear}` : expiryYear,
+      ccv: onlyDigits(requireText(creditCard, "ccv", "CVV")),
+    };
+
+    if (normalizedPayload.creditCard.number.length < 13) {
+      throw new Error("Número do cartão inválido.");
+    }
+
+    if (normalizedPayload.creditCard.ccv.length < 3) {
+      throw new Error("CVV inválido.");
+    }
+  }
+
+  return normalizedPayload;
 }
 
-export async function createIronAirCheckout(payload) {
+export async function createIronAirCheckout(payload, options = {}) {
   const normalizedPayload = normalizeIronAirCheckoutPayload(payload);
   const existingOrder = await findAsaasShopifyOrderByExternalReference(
     normalizedPayload.externalReference,
   );
 
   if (existingOrder?.asaasPaymentId) {
-    const pix = await getAsaasPixQrCode(existingOrder.asaasPaymentId);
+    const pix =
+      normalizedPayload.paymentMethod === "PIX"
+        ? await getAsaasPixQrCode(existingOrder.asaasPaymentId)
+        : null;
 
     return {
       checkoutUrl: null,
       paymentId: existingOrder.asaasPaymentId,
       pix,
+      paymentMethod: normalizedPayload.paymentMethod,
       externalReference: existingOrder.externalReference,
       draftOrderId: existingOrder.draftOrderId,
       draftOrderName: existingOrder.draftOrderName,
@@ -179,13 +213,24 @@ export async function createIronAirCheckout(payload) {
   totalValue = draftResult.value;
 
   try {
-    const asaasResult = await createAsaasPixPaymentForCustomCheckout({
-      customer: normalizedPayload.customer,
-      shippingAddress: normalizedPayload.shippingAddress,
-      externalReference: normalizedPayload.externalReference,
-      items: verifiedItems,
-      value: totalValue,
-    });
+    const asaasResult =
+      normalizedPayload.paymentMethod === "CREDIT_CARD"
+        ? await createAsaasCreditCardPaymentForCustomCheckout({
+            customer: normalizedPayload.customer,
+            shippingAddress: normalizedPayload.shippingAddress,
+            externalReference: normalizedPayload.externalReference,
+            items: verifiedItems,
+            value: totalValue,
+            creditCard: normalizedPayload.creditCard,
+            remoteIp: options.remoteIp,
+          })
+        : await createAsaasPixPaymentForCustomCheckout({
+            customer: normalizedPayload.customer,
+            shippingAddress: normalizedPayload.shippingAddress,
+            externalReference: normalizedPayload.externalReference,
+            items: verifiedItems,
+            value: totalValue,
+          });
     const payment = asaasResult.payment;
     const mappedOrder = await attachAsaasPaymentToDraftOrder({
       draftOrder,
@@ -216,6 +261,8 @@ export async function createIronAirCheckout(payload) {
       checkoutId: null,
       paymentId: payment.id,
       pix: asaasResult.pix,
+      paymentMethod: normalizedPayload.paymentMethod,
+      paymentStatus: payment.status,
       externalReference: mappedOrder.externalReference,
       draftOrderId: mappedOrder.draftOrderId,
       draftOrderName: mappedOrder.draftOrderName,

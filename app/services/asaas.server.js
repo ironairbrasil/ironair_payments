@@ -76,6 +76,15 @@ function todayAsIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function buildCustomCheckoutDescription(items) {
+  return truncateAsaasText(
+    items
+      .map((item) => `${Math.max(1, Number(item.quantity) || 1)}x ${item.title}`)
+      .join(" | ") || getAsaasDescription(),
+    MAX_ASAAS_DESCRIPTION_LENGTH,
+  );
+}
+
 function maskValue(value) {
   const text = String(value || "");
 
@@ -362,12 +371,7 @@ export async function createAsaasPixPaymentForCustomCheckout({
     customer,
     shippingAddress,
   });
-  const description = truncateAsaasText(
-    items
-      .map((item) => `${Math.max(1, Number(item.quantity) || 1)}x ${item.title}`)
-      .join(" | ") || getAsaasDescription(),
-    MAX_ASAAS_DESCRIPTION_LENGTH,
-  );
+  const description = buildCustomCheckoutDescription(items);
   const paymentPayload = {
     customer: asaasCustomer.id,
     billingType: "PIX",
@@ -391,6 +395,71 @@ export async function createAsaasPixPaymentForCustomCheckout({
   return {
     payment,
     pix,
+    asaasCustomer,
+  };
+}
+
+export async function createAsaasCreditCardPaymentForCustomCheckout({
+  customer,
+  shippingAddress,
+  externalReference,
+  items,
+  value,
+  creditCard,
+  remoteIp,
+}) {
+  const asaasCustomer = await createAsaasCustomerForCustomCheckout({
+    customer,
+    shippingAddress,
+  });
+  const paymentPayload = {
+    customer: asaasCustomer.id,
+    billingType: "CREDIT_CARD",
+    value: Number(value),
+    dueDate: todayAsIsoDate(),
+    description: buildCustomCheckoutDescription(items),
+    externalReference,
+    creditCard: {
+      holderName: creditCard.holderName,
+      number: creditCard.number,
+      expiryMonth: creditCard.expiryMonth,
+      expiryYear: creditCard.expiryYear,
+      ccv: creditCard.ccv,
+    },
+    creditCardHolderInfo: {
+      name: customer.name,
+      email: customer.email,
+      cpfCnpj: customer.cpfCnpj,
+      postalCode: shippingAddress.postalCode,
+      addressNumber: shippingAddress.number,
+      addressComplement: shippingAddress.complement || undefined,
+      phone: customer.phone,
+      mobilePhone: customer.phone,
+    },
+    remoteIp,
+  };
+
+  console.log(
+    "[asaas] Creating direct credit card payment.",
+    sanitizePayloadForLog({
+      ...paymentPayload,
+      creditCard: {
+        holderName: creditCard.holderName,
+        number: maskValue(creditCard.number),
+        expiryMonth: creditCard.expiryMonth,
+        expiryYear: creditCard.expiryYear,
+        ccv: "***",
+      },
+    }),
+  );
+
+  const payment = await requestAsaas("/payments", {
+    method: "POST",
+    body: JSON.stringify(paymentPayload),
+  });
+
+  return {
+    payment,
     asaasCustomer,
   };
 }

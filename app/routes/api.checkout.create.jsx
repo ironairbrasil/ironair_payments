@@ -4,6 +4,14 @@ import {
 } from "../services/checkout-flow.server";
 import { createIronAirCheckout } from "../services/ironair-checkout.server";
 
+function getClientIp(request) {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "127.0.0.1"
+  );
+}
+
 export async function loader({ request }) {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -40,7 +48,9 @@ export async function action({ request }) {
   }
 
   try {
-    const checkout = await createIronAirCheckout(await request.json());
+    const checkout = await createIronAirCheckout(await request.json(), {
+      remoteIp: getClientIp(request),
+    });
 
     return checkoutJson({
       success: true,
@@ -48,6 +58,8 @@ export async function action({ request }) {
       checkoutId: checkout.checkoutId,
       paymentId: checkout.paymentId,
       pix: checkout.pix,
+      paymentMethod: checkout.paymentMethod,
+      paymentStatus: checkout.paymentStatus,
       externalReference: checkout.externalReference,
       draftOrderId: checkout.draftOrderId,
       draftOrderName: checkout.draftOrderName,

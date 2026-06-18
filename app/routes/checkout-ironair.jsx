@@ -342,6 +342,20 @@ function formatPhone(value) {
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
+function formatCardNumber(value) {
+  return onlyDigits(value)
+    .slice(0, 19)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+function formatExpiry(value) {
+  const digits = onlyDigits(value).slice(0, 6);
+
+  if (digits.length <= 2) return digits;
+
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
 function formatMoney(value) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -392,9 +406,18 @@ export default function IronAirCheckout() {
     saveAddress: true,
   });
   const [errors, setErrors] = useState({});
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [card, setCard] = useState({
+    holderName: "",
+    number: "",
+    expiry: "",
+    ccv: "",
+    installments: "1",
+  });
   const [cepLoading, setCepLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
   const [pixPayment, setPixPayment] = useState(null);
   const subtotal = useMemo(
     () =>
@@ -415,6 +438,17 @@ export default function IronAirCheckout() {
 
     setForm((current) => ({ ...current, [name]: nextValue }));
     setErrors((current) => ({ ...current, [name]: "" }));
+  }
+
+  function updateCardField(name, value) {
+    let nextValue = value;
+
+    if (name === "number") nextValue = formatCardNumber(value);
+    if (name === "expiry") nextValue = formatExpiry(value);
+    if (name === "ccv") nextValue = onlyDigits(value).slice(0, 4);
+
+    setCard((current) => ({ ...current, [name]: nextValue }));
+    setErrors((current) => ({ ...current, [`card.${name}`]: "" }));
   }
 
   async function lookupCep() {
@@ -469,6 +503,17 @@ export default function IronAirCheckout() {
     if (!form.city.trim()) nextErrors.city = "Informe a cidade.";
     if (!/^[A-Z]{2}$/.test(form.provinceCode)) nextErrors.provinceCode = "UF inválida.";
 
+    if (paymentMethod === "CREDIT_CARD") {
+      const [expiryMonth = "", expiryYear = ""] = card.expiry.split("/");
+
+      if (!card.holderName.trim()) nextErrors["card.holderName"] = "Informe o nome.";
+      if (onlyDigits(card.number).length < 13) nextErrors["card.number"] = "Cartão inválido.";
+      if (expiryMonth.length !== 2 || expiryYear.length < 2) {
+        nextErrors["card.expiry"] = "Validade inválida.";
+      }
+      if (onlyDigits(card.ccv).length < 3) nextErrors["card.ccv"] = "CVV inválido.";
+    }
+
     setErrors(nextErrors);
 
     return Object.keys(nextErrors).length === 0;
@@ -477,6 +522,7 @@ export default function IronAirCheckout() {
   async function submitCheckout(event) {
     event.preventDefault();
     setFormError("");
+    setPaymentNotice("");
     setPixPayment(null);
 
     if (itemLoadError || subtotal <= 0) {
@@ -522,8 +568,23 @@ export default function IronAirCheckout() {
           countryCode: "BR",
           phone: onlyDigits(form.phone),
         },
+        paymentMethod,
         items: items.filter(itemIsPayable),
       };
+
+      if (paymentMethod === "CREDIT_CARD") {
+        const [expiryMonth, expiryYear] = card.expiry.split("/");
+
+        payload.creditCard = {
+          holderName: card.holderName.trim(),
+          number: onlyDigits(card.number),
+          expiryMonth,
+          expiryYear,
+          ccv: onlyDigits(card.ccv),
+          installments: Number(card.installments) || 1,
+        };
+      }
+
       const response = await fetch("/api/checkout/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -531,17 +592,24 @@ export default function IronAirCheckout() {
       });
       const data = await response.json();
 
-      if (!response.ok || !data.success || !data.pix?.payload) {
-        throw new Error(data.error || "Não foi possível gerar o Pix.");
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível criar o pagamento.");
       }
 
-      setPixPayment({
-        paymentId: data.paymentId,
-        externalReference: data.externalReference,
-        payload: data.pix.payload,
-        encodedImage: data.pix.encodedImage,
-        expirationDate: data.pix.expirationDate,
-      });
+      if (paymentMethod === "PIX") {
+        if (!data.pix?.payload) throw new Error("Não foi possível gerar o Pix.");
+
+        setPixPayment({
+          paymentId: data.paymentId,
+          externalReference: data.externalReference,
+          payload: data.pix.payload,
+          encodedImage: data.pix.encodedImage,
+          expirationDate: data.pix.expirationDate,
+        });
+      } else {
+        setPixPayment(null);
+        setPaymentNotice("Pagamento enviado para processamento.");
+      }
     } catch (error) {
       setFormError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -775,10 +843,20 @@ export default function IronAirCheckout() {
           </section>
 
           <div className="ia-payment-methods">
-            <details open>
-              <summary>
-                <span>Pix</span>
-                <ChevronDown size={18} />
+            <details open={paymentMethod === "PIX"}>
+              <summary onClick={(event) => event.preventDefault()}>
+                <label>
+                  <input
+                    checked={paymentMethod === "PIX"}
+                    name="paymentMethod"
+                    type="radio"
+                    onChange={() => setPaymentMethod("PIX")}
+                  />
+                  <span>Pix</span>
+                </label>
+                <button type="button" onClick={() => setPaymentMethod("PIX")}>
+                  <ChevronDown size={18} />
+                </button>
               </summary>
               <div className="ia-method-body">
                 {pixPayment ? (
@@ -809,15 +887,68 @@ export default function IronAirCheckout() {
               </div>
             </details>
 
-            <details>
-              <summary>
-                <span>Cartão de crédito</span>
-                <ChevronDown size={18} />
+            <details open={paymentMethod === "CREDIT_CARD"}>
+              <summary onClick={(event) => event.preventDefault()}>
+                <label>
+                  <input
+                    checked={paymentMethod === "CREDIT_CARD"}
+                    name="paymentMethod"
+                    type="radio"
+                    onChange={() => setPaymentMethod("CREDIT_CARD")}
+                  />
+                  <span>Cartão de crédito</span>
+                </label>
+                <button type="button" onClick={() => setPaymentMethod("CREDIT_CARD")}>
+                  <ChevronDown size={18} />
+                </button>
               </summary>
               <div className="ia-method-body">
-                <p>
-                  O pagamento por cartão será liberado neste checkout depois da etapa Pix.
-                </p>
+                <div className="ia-card-fields">
+                  <Field
+                    label="Nome impresso no cartão"
+                    name="holderName"
+                    value={card.holderName}
+                    onChange={updateCardField}
+                    error={errors["card.holderName"]}
+                  />
+                  <Field
+                    label="Número do cartão"
+                    name="number"
+                    value={card.number}
+                    onChange={updateCardField}
+                    error={errors["card.number"]}
+                    inputMode="numeric"
+                  />
+                  <div className="ia-grid two compact">
+                    <Field
+                      label="Validade"
+                      name="expiry"
+                      value={card.expiry}
+                      onChange={updateCardField}
+                      error={errors["card.expiry"]}
+                      inputMode="numeric"
+                      placeholder="MM/AA"
+                    />
+                    <Field
+                      label="CVV"
+                      name="ccv"
+                      value={card.ccv}
+                      onChange={updateCardField}
+                      error={errors["card.ccv"]}
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <label className="ia-field ia-select">
+                    <span>Parcelas</span>
+                    <select
+                      value={card.installments}
+                      onChange={(event) => updateCardField("installments", event.target.value)}
+                    >
+                      <option value="1">1x de {formatMoney(subtotal)}</option>
+                    </select>
+                    <ChevronDown size={18} />
+                  </label>
+                </div>
               </div>
             </details>
           </div>
@@ -828,9 +959,17 @@ export default function IronAirCheckout() {
             form="ironair-checkout-form"
             disabled={loading || Boolean(itemLoadError) || subtotal <= 0}
           >
-            <span>{loading ? "Gerando pagamento..." : "Continuar para pagamento"}</span>
+            <span>
+              {loading
+                ? "Processando..."
+                : paymentMethod === "PIX"
+                  ? "Gerar Pix"
+                  : "Pagar com cartão"}
+            </span>
             <ArrowRight size={28} />
           </button>
+
+          {paymentNotice ? <div className="ia-notice">{paymentNotice}</div> : null}
 
           <div className="ia-protected">
             <ShieldCheck size={18} />
