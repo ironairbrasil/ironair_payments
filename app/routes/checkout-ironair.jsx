@@ -670,7 +670,12 @@ export default function IronAirCheckout() {
         setPixStatus(data.paid ? "PAID" : data.status || "PENDING");
 
         if (data.paid) {
-          setPaymentNotice("Pagamento confirmado. Seu pedido foi criado na Shopify.");
+          const successParams = new URLSearchParams({
+            paymentId: pixPayment.paymentId,
+            externalReference: pixPayment.externalReference || "",
+          });
+
+          window.location.assign(`/checkout/success?${successParams}`);
         }
       } catch {
         // Keep polling; the webhook may still finish the order.
