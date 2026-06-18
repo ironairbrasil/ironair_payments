@@ -150,6 +150,112 @@ function itemIsPayable(item) {
   );
 }
 
+function queryValue(searchParams, keys) {
+  for (const key of keys) {
+    const value = decodeValue(searchParams.get(key));
+    if (value) return value;
+  }
+
+  return "";
+}
+
+function normalizeProvinceCode(value) {
+  const province = decodeValue(value).toUpperCase();
+
+  if (BRAZIL_STATES.includes(province)) return province;
+
+  return "";
+}
+
+function parsePrefill(searchParams) {
+  const firstName = queryValue(searchParams, [
+    "customer[firstName]",
+    "customer[first_name]",
+    "firstName",
+    "first_name",
+  ]);
+  const lastName = queryValue(searchParams, [
+    "customer[lastName]",
+    "customer[last_name]",
+    "lastName",
+    "last_name",
+  ]);
+  const name =
+    queryValue(searchParams, ["customer[name]", "customerName", "name"]) ||
+    [firstName, lastName].filter(Boolean).join(" ");
+  const phone = queryValue(searchParams, [
+    "customer[phone]",
+    "shippingAddress[phone]",
+    "defaultAddress[phone]",
+    "phone",
+  ]);
+  const provinceCode = normalizeProvinceCode(
+    queryValue(searchParams, [
+      "shippingAddress[provinceCode]",
+      "shippingAddress[province_code]",
+      "defaultAddress[provinceCode]",
+      "defaultAddress[province_code]",
+      "provinceCode",
+      "province_code",
+      "state",
+      "uf",
+    ]),
+  );
+
+  return {
+    email: queryValue(searchParams, ["customer[email]", "email"]),
+    name,
+    cpfCnpj: queryValue(searchParams, [
+      "customer[cpfCnpj]",
+      "customer[cpf_cnpj]",
+      "customer[cpf]",
+      "cpfCnpj",
+      "cpf",
+    ]),
+    phone,
+    postalCode: queryValue(searchParams, [
+      "shippingAddress[postalCode]",
+      "shippingAddress[zip]",
+      "defaultAddress[postalCode]",
+      "defaultAddress[zip]",
+      "postalCode",
+      "zip",
+      "cep",
+    ]),
+    address1: queryValue(searchParams, [
+      "shippingAddress[address1]",
+      "defaultAddress[address1]",
+      "address1",
+    ]),
+    number: queryValue(searchParams, [
+      "shippingAddress[number]",
+      "defaultAddress[number]",
+      "addressNumber",
+      "number",
+    ]),
+    complement: queryValue(searchParams, [
+      "shippingAddress[complement]",
+      "shippingAddress[address2]",
+      "defaultAddress[complement]",
+      "defaultAddress[address2]",
+      "complement",
+      "address2",
+    ]),
+    neighborhood: queryValue(searchParams, [
+      "shippingAddress[neighborhood]",
+      "defaultAddress[neighborhood]",
+      "neighborhood",
+      "bairro",
+    ]),
+    city: queryValue(searchParams, [
+      "shippingAddress[city]",
+      "defaultAddress[city]",
+      "city",
+    ]),
+    provinceCode,
+  };
+}
+
 function parseItems(searchParams) {
   const encodedItems = searchParams.get("items");
   const bracketItems = parseBracketItems(searchParams);
@@ -200,6 +306,7 @@ export async function loader({ request }) {
 
   return {
     items,
+    prefill: parsePrefill(url.searchParams),
     itemLoadError,
     externalReference: url.searchParams.get("externalReference") || "",
   };
@@ -271,19 +378,19 @@ function Field({
 }
 
 export default function IronAirCheckout() {
-  const { items, itemLoadError, externalReference } = useLoaderData();
+  const { items, prefill, itemLoadError, externalReference } = useLoaderData();
   const [form, setForm] = useState({
-    email: "",
-    name: "",
-    cpfCnpj: "",
-    phone: "",
-    postalCode: "",
-    address1: "",
-    number: "",
-    complement: "",
-    neighborhood: "",
-    city: "",
-    provinceCode: "SP",
+    email: prefill.email || "",
+    name: prefill.name || "",
+    cpfCnpj: formatCpf(prefill.cpfCnpj || ""),
+    phone: formatPhone(prefill.phone || ""),
+    postalCode: formatCep(prefill.postalCode || ""),
+    address1: prefill.address1 || "",
+    number: prefill.number || "",
+    complement: prefill.complement || "",
+    neighborhood: prefill.neighborhood || "",
+    city: prefill.city || "",
+    provinceCode: prefill.provinceCode || "SP",
     newsletter: true,
     saveAddress: true,
   });
