@@ -514,57 +514,45 @@ body {
   margin-top: 18px;
 }
 
-.ia-payment-methods details {
+.ia-method {
   border: 1px solid #d8d8d8;
   border-radius: 5px;
   background: #fff;
 }
 
-.ia-payment-methods details + details {
+.ia-method + .ia-method {
   margin-top: 10px;
 }
 
-.ia-payment-methods summary {
+.ia-method-header {
+  width: 100%;
   min-height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: #111;
   cursor: pointer;
-  list-style: none;
+  font: inherit;
   font-weight: 800;
 }
 
-.ia-payment-methods summary::-webkit-details-marker {
-  display: none;
-}
-
-.ia-payment-methods summary label {
+.ia-method-header span {
   display: flex;
   align-items: center;
   gap: 11px;
-  cursor: pointer;
 }
 
-.ia-payment-methods summary input {
+.ia-method-header input {
   width: 18px;
   height: 18px;
   accent-color: #111;
 }
 
-.ia-payment-methods summary button {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: #111;
-  cursor: pointer;
-}
-
-.ia-payment-methods details[open] summary {
+.ia-method.is-open .ia-method-header {
   border-bottom: 1px solid #e2e2e2;
 }
 

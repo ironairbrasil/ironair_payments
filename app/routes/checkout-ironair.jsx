@@ -843,114 +843,118 @@ export default function IronAirCheckout() {
           </section>
 
           <div className="ia-payment-methods">
-            <details open={paymentMethod === "PIX"}>
-              <summary onClick={(event) => event.preventDefault()}>
-                <label>
-                  <input
-                    checked={paymentMethod === "PIX"}
-                    name="paymentMethod"
-                    type="radio"
-                    onChange={() => setPaymentMethod("PIX")}
-                  />
-                  <span>Pix</span>
-                </label>
-                <button type="button" onClick={() => setPaymentMethod("PIX")}>
-                  <ChevronDown size={18} />
-                </button>
-              </summary>
-              <div className="ia-method-body">
-                {pixPayment ? (
-                  <section className="ia-pix-result" aria-live="polite">
-                    <div>
-                      <h2>Pix gerado</h2>
-                      <p>
-                        Escaneie o QR Code ou copie o código Pix. Assim que o pagamento
-                        for confirmado, seu pedido será liberado.
-                      </p>
-                    </div>
-                    {pixPayment.encodedImage ? (
-                      <img
-                        src={`data:image/png;base64,${pixPayment.encodedImage}`}
-                        alt="QR Code Pix"
-                      />
-                    ) : null}
-                    <textarea readOnly value={pixPayment.payload} />
-                    <button type="button" onClick={copyPixCode}>
-                      Copiar código Pix
-                    </button>
-                  </section>
-                ) : (
-                  <p>
-                    O QR Code Pix será gerado aqui depois que você confirmar os dados.
-                  </p>
-                )}
-              </div>
-            </details>
+            <section className={`ia-method ${paymentMethod === "PIX" ? "is-open" : ""}`}>
+              <button
+                className="ia-method-header"
+                type="button"
+                onClick={() => setPaymentMethod("PIX")}
+              >
+                <span>
+                  <input checked={paymentMethod === "PIX"} readOnly type="radio" />
+                  Pix
+                </span>
+                <ChevronDown size={18} />
+              </button>
+              {paymentMethod === "PIX" ? (
+                <div className="ia-method-body">
+                  {pixPayment ? (
+                    <section className="ia-pix-result" aria-live="polite">
+                      <div>
+                        <h2>Pix gerado</h2>
+                        <p>
+                          Escaneie o QR Code ou copie o código Pix. Assim que o pagamento
+                          for confirmado, seu pedido será liberado.
+                        </p>
+                      </div>
+                      {pixPayment.encodedImage ? (
+                        <img
+                          src={`data:image/png;base64,${pixPayment.encodedImage}`}
+                          alt="QR Code Pix"
+                        />
+                      ) : null}
+                      <textarea readOnly value={pixPayment.payload} />
+                      <button type="button" onClick={copyPixCode}>
+                        Copiar código Pix
+                      </button>
+                    </section>
+                  ) : (
+                    <p>
+                      O QR Code Pix será gerado aqui depois que você confirmar os dados.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </section>
 
-            <details open={paymentMethod === "CREDIT_CARD"}>
-              <summary onClick={(event) => event.preventDefault()}>
-                <label>
+            <section
+              className={`ia-method ${paymentMethod === "CREDIT_CARD" ? "is-open" : ""}`}
+            >
+              <button
+                className="ia-method-header"
+                type="button"
+                onClick={() => setPaymentMethod("CREDIT_CARD")}
+              >
+                <span>
                   <input
                     checked={paymentMethod === "CREDIT_CARD"}
-                    name="paymentMethod"
+                    readOnly
                     type="radio"
-                    onChange={() => setPaymentMethod("CREDIT_CARD")}
                   />
-                  <span>Cartão de crédito</span>
-                </label>
-                <button type="button" onClick={() => setPaymentMethod("CREDIT_CARD")}>
-                  <ChevronDown size={18} />
-                </button>
-              </summary>
-              <div className="ia-method-body">
-                <div className="ia-card-fields">
-                  <Field
-                    label="Nome impresso no cartão"
-                    name="holderName"
-                    value={card.holderName}
-                    onChange={updateCardField}
-                    error={errors["card.holderName"]}
-                  />
-                  <Field
-                    label="Número do cartão"
-                    name="number"
-                    value={card.number}
-                    onChange={updateCardField}
-                    error={errors["card.number"]}
-                    inputMode="numeric"
-                  />
-                  <div className="ia-grid two compact">
+                  Cartão de crédito
+                </span>
+                <ChevronDown size={18} />
+              </button>
+              {paymentMethod === "CREDIT_CARD" ? (
+                <div className="ia-method-body">
+                  <div className="ia-card-fields">
                     <Field
-                      label="Validade"
-                      name="expiry"
-                      value={card.expiry}
+                      label="Nome impresso no cartão"
+                      name="holderName"
+                      value={card.holderName}
                       onChange={updateCardField}
-                      error={errors["card.expiry"]}
-                      inputMode="numeric"
-                      placeholder="MM/AA"
+                      error={errors["card.holderName"]}
                     />
                     <Field
-                      label="CVV"
-                      name="ccv"
-                      value={card.ccv}
+                      label="Número do cartão"
+                      name="number"
+                      value={card.number}
                       onChange={updateCardField}
-                      error={errors["card.ccv"]}
+                      error={errors["card.number"]}
                       inputMode="numeric"
                     />
+                    <div className="ia-grid two compact">
+                      <Field
+                        label="Validade"
+                        name="expiry"
+                        value={card.expiry}
+                        onChange={updateCardField}
+                        error={errors["card.expiry"]}
+                        inputMode="numeric"
+                        placeholder="MM/AA"
+                      />
+                      <Field
+                        label="CVV"
+                        name="ccv"
+                        value={card.ccv}
+                        onChange={updateCardField}
+                        error={errors["card.ccv"]}
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <label className="ia-field ia-select">
+                      <span>Parcelas</span>
+                      <select
+                        value={card.installments}
+                        onChange={(event) => updateCardField("installments", event.target.value)}
+                      >
+                        <option value="1">1x de {formatMoney(subtotal)}</option>
+                      </select>
+                      <ChevronDown size={18} />
+                    </label>
                   </div>
-                  <label className="ia-field ia-select">
-                    <span>Parcelas</span>
-                    <select
-                      value={card.installments}
-                      onChange={(event) => updateCardField("installments", event.target.value)}
-                    >
-                      <option value="1">1x de {formatMoney(subtotal)}</option>
-                    </select>
-                    <ChevronDown size={18} />
-                  </label>
                 </div>
-              </div>
-            </details>
+              ) : null}
+            </section>
           </div>
 
           <button
