@@ -250,6 +250,7 @@ export async function createAsaasCheckoutPayment(payload) {
 
 export async function createAsaasCheckoutForCustomCheckout({
   customer,
+  shippingAddress,
   externalReference,
   items,
 }) {
@@ -268,6 +269,15 @@ export async function createAsaasCheckoutForCustomCheckout({
     email: customer.email,
     cpfCnpj: customer.cpfCnpj,
     mobilePhone: customer.phone,
+    phone: customer.phone,
+    address: shippingAddress?.address1,
+    addressNumber: shippingAddress?.number,
+    complement: shippingAddress?.complement,
+    province: shippingAddress?.neighborhood,
+    postalCode: shippingAddress?.postalCode,
+    city: shippingAddress?.city,
+    cityName: shippingAddress?.city,
+    state: shippingAddress?.provinceCode,
   };
 
   try {

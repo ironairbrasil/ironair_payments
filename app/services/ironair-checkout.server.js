@@ -174,6 +174,7 @@ export async function createIronAirCheckout(payload) {
   try {
     const asaasResult = await createAsaasCheckoutForCustomCheckout({
       customer: normalizedPayload.customer,
+      shippingAddress: normalizedPayload.shippingAddress,
       externalReference: normalizedPayload.externalReference,
       items: verifiedItems,
     });
@@ -196,6 +197,7 @@ export async function createIronAirCheckout(payload) {
       shopify: "See [SHOPIFY CUSTOM CHECKOUT DRAFT PAYLOAD]",
       asaas: sanitizeForLog({
         customer: normalizedPayload.customer,
+        shippingAddress: normalizedPayload.shippingAddress,
         externalReference: normalizedPayload.externalReference,
         items: verifiedItems,
       }),
