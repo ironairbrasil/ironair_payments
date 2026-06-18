@@ -313,6 +313,28 @@ function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function isValidCpf(value) {
+  const cpf = onlyDigits(value);
+
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
+    return false;
+  }
+
+  const calculateDigit = (base) => {
+    const sum = base
+      .split("")
+      .reduce((total, digit, index) => total + Number(digit) * (base.length + 1 - index), 0);
+    const remainder = (sum * 10) % 11;
+
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  return (
+    calculateDigit(cpf.slice(0, 9)) === Number(cpf[9]) &&
+    calculateDigit(cpf.slice(0, 10)) === Number(cpf[10])
+  );
+}
+
 function formatCpf(value) {
   const digits = onlyDigits(value).slice(0, 11);
 
@@ -495,7 +517,7 @@ export default function IronAirCheckout() {
       nextErrors.email = "Informe um e-mail válido.";
     }
     if (!form.name.trim()) nextErrors.name = "Informe seu nome completo.";
-    if (onlyDigits(form.cpfCnpj).length !== 11) nextErrors.cpfCnpj = "CPF inválido.";
+    if (!isValidCpf(form.cpfCnpj)) nextErrors.cpfCnpj = "CPF inválido.";
     if (onlyDigits(form.phone).length < 10) nextErrors.phone = "Telefone inválido.";
     if (onlyDigits(form.postalCode).length !== 8) nextErrors.postalCode = "CEP inválido.";
     if (!form.address1.trim()) nextErrors.address1 = "Informe o endereço.";

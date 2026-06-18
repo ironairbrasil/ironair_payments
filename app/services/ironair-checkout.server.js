@@ -21,6 +21,28 @@ function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function isValidCpf(value) {
+  const cpf = onlyDigits(value);
+
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
+    return false;
+  }
+
+  const calculateDigit = (base) => {
+    const sum = base
+      .split("")
+      .reduce((total, digit, index) => total + Number(digit) * (base.length + 1 - index), 0);
+    const remainder = (sum * 10) % 11;
+
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  return (
+    calculateDigit(cpf.slice(0, 9)) === Number(cpf[9]) &&
+    calculateDigit(cpf.slice(0, 10)) === Number(cpf[10])
+  );
+}
+
 function requireText(source, field, label = field) {
   const value = String(source?.[field] || "").trim();
 
@@ -81,7 +103,7 @@ export function normalizeIronAirCheckoutPayload(payload) {
     throw new Error("Email inválido.");
   }
 
-  if (normalizedCustomer.cpfCnpj.length < 11) {
+  if (!isValidCpf(normalizedCustomer.cpfCnpj)) {
     throw new Error("CPF inválido.");
   }
 
