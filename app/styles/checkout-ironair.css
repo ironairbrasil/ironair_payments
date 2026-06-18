@@ -18,19 +18,19 @@ body {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 60%) minmax(420px, 40%);
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto auto;
   background: #fff;
 }
 
 .ia-left {
-  padding: 0 46px 70px 50px;
+  padding: 0 46px 38px 50px;
 }
 
 .ia-right {
-  min-height: 1012px;
+  min-height: 760px;
   border-left: 1px solid #dadada;
   background: #fbfbfb;
-  padding: 86px 64px 64px 36px;
+  padding: 86px 64px 38px 36px;
 }
 
 .ia-header {
@@ -41,21 +41,12 @@ body {
   padding-top: 13px;
 }
 
-.ia-logo strong {
+.ia-logo {
+  width: 205px;
+  height: auto;
+  margin-top: 4px;
   display: block;
-  color: #202124;
-  font-size: 42px;
-  font-weight: 900;
-  line-height: 0.9;
-  letter-spacing: 0;
-}
-
-.ia-logo span {
-  display: block;
-  margin-top: 10px;
-  color: #8b8b8b;
-  font-size: 14px;
-  letter-spacing: 9px;
+  object-fit: contain;
 }
 
 .ia-safe {
@@ -278,7 +269,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin-top: 26px;
+  margin-top: 18px;
   color: #777;
   font-size: 12px;
 }
@@ -432,15 +423,18 @@ body {
 }
 
 .ia-asaas {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 48px;
   border-radius: 4px;
-  color: #1455ff;
   background: #fff;
-  font-weight: 900;
-  font-size: 18px;
-  font-style: italic;
+}
+
+.ia-asaas img {
+  width: 82px;
+  height: auto;
+  display: block;
 }
 
 .ia-payment-card i {
@@ -483,7 +477,7 @@ body {
 
 .ia-footer {
   grid-column: 1 / -1;
-  min-height: 110px;
+  min-height: 100px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   align-items: center;
@@ -545,12 +539,9 @@ body {
     padding: 0 0 20px;
   }
 
-  .ia-logo strong {
-    font-size: 32px;
-  }
-
-  .ia-logo span {
-    letter-spacing: 7px;
+  .ia-logo {
+    width: 170px;
+    margin-top: 0;
   }
 
   .ia-safe {

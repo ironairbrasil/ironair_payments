@@ -548,10 +548,11 @@ export default function IronAirCheckout() {
     <main className="ia-checkout">
       <section className="ia-left">
         <header className="ia-header">
-          <div className="ia-logo">
-            <strong>IRON AIR</strong>
-            <span>BRASIL</span>
-          </div>
+          <img
+            className="ia-logo"
+            src="/Iron-Air-Logo.webp"
+            alt="Iron Air Brasil"
+          />
           <div className="ia-safe">
             <Lock size={15} />
             Checkout seguro
@@ -770,7 +771,9 @@ export default function IronAirCheckout() {
           <section className="ia-payment">
             <h3>Método de pagamento</h3>
             <div className="ia-payment-card">
-              <div className="ia-asaas">ASAAS</div>
+              <div className="ia-asaas">
+                <img src="/asaas-logo.svg" alt="Asaas" />
+              </div>
               <div>
                 <strong>Pagar com Asaas</strong>
                 <span>Boleto, Pix, Cartão e mais</span>
