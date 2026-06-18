@@ -89,7 +89,10 @@ export async function action({ request }) {
         `payment=${payload.payment?.id}`,
         `value=${payload.payment?.value}`,
         `customer=${payload.payment?.customer}`,
-        `externalReference=${payload.payment?.externalReference}`,
+        `checkout=${payload.checkout?.id}`,
+        `externalReference=${
+          payload.payment?.externalReference || payload.checkout?.externalReference
+        }`,
       ].join("\n"),
     );
 

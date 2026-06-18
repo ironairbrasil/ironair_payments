@@ -72,6 +72,36 @@ function truncateAsaasText(value, maxLength) {
   return text.length > maxLength ? text.slice(0, maxLength) : text;
 }
 
+function maskValue(value) {
+  const text = String(value || "");
+
+  if (text.includes("@")) {
+    const [user, domain] = text.split("@");
+    return `${user.slice(0, 2)}***@${domain}`;
+  }
+
+  return text.length > 4 ? `${text.slice(0, 3)}***${text.slice(-2)}` : "***";
+}
+
+function sanitizePayloadForLog(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizePayloadForLog(item));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      ["email", "cpfCnpj", "phone", "mobilePhone"].includes(key)
+        ? maskValue(item)
+        : sanitizePayloadForLog(item),
+    ]),
+  );
+}
+
 function assertAsaasApiKey(apiKey) {
   if (!apiKey) {
     throw new Error("ASAAS_API_KEY is not configured.");
@@ -128,6 +158,11 @@ export async function createAsaasCheckout({
     callback: getCheckoutCallbackUrls(),
     items,
   };
+
+  console.log(
+    "[asaas] Creating hosted checkout.",
+    sanitizePayloadForLog(checkoutPayload),
+  );
 
   const checkout = await requestAsaas("/checkouts", {
     method: "POST",
@@ -219,6 +254,14 @@ export async function getAsaasCustomer(customerId) {
   return requestAsaas(`/customers/${customerId}`);
 }
 
+export async function getAsaasPayment(paymentId) {
+  if (!paymentId) {
+    return null;
+  }
+
+  return requestAsaas(`/payments/${paymentId}`);
+}
+
 export async function handleAsaasWebhook(payload) {
   const event = payload?.event;
   const payment = payload?.payment;
@@ -247,28 +290,58 @@ export async function handleAsaasWebhook(payload) {
     externalReference: payment?.externalReference ?? checkout?.externalReference,
   };
 
+  console.log("[asaas] Raw webhook payload received.", payload);
+  console.log("[asaas] Webhook IDs received.", {
+    event,
+    paymentId: payment?.id,
+    paymentCustomer: payment?.customer,
+    checkoutId: checkout?.id,
+    checkoutCustomer: checkout?.customer,
+    status: payment?.status ?? checkout?.status,
+    value: payment?.value,
+    externalReference: payment?.externalReference ?? checkout?.externalReference,
+  });
+
   if (APPROVED_PAYMENT_EVENTS.has(event)) {
-    const asaasCustomerId = payment?.customer ?? checkout?.customer;
+    const paymentId = payment?.id;
+    const asaasPayment = paymentId ? await getAsaasPayment(paymentId) : payment;
+    const asaasCustomerId =
+      asaasPayment?.customer ?? payment?.customer ?? checkout?.customer;
     const asaasCustomer = asaasCustomerId
       ? await getAsaasCustomer(asaasCustomerId)
       : null;
+    const resolvedExternalReference =
+      asaasPayment?.externalReference ??
+      payment?.externalReference ??
+      checkout?.externalReference;
+
+    console.log("[asaas] GET /payments/{id} response.", {
+      paymentId,
+      response: sanitizePayloadForLog(asaasPayment),
+    });
+
+    console.log("[asaas] GET /customers/{id} response.", {
+      customerId: asaasCustomerId,
+      response: sanitizePayloadForLog(asaasCustomer),
+    });
 
     console.log("[asaas] Approved payment webhook:", {
-      paymentId: payment?.id,
+      paymentId,
       checkoutId: checkout?.id,
-      status: payment?.status ?? checkout?.status,
-      value: payment?.value,
+      status: asaasPayment?.status ?? payment?.status ?? checkout?.status,
+      value: asaasPayment?.value ?? payment?.value,
       customer: asaasCustomerId,
-      billingType: payment?.billingType,
-      externalReference: payment?.externalReference ?? checkout?.externalReference,
+      billingType: asaasPayment?.billingType ?? payment?.billingType,
+      externalReference: resolvedExternalReference,
     });
 
     console.log("[SHOPIFY ORDER READY]");
-    await completeDraftOrderForAsaasPayment(payment?.id, {
+    await completeDraftOrderForAsaasPayment(paymentId, {
       asaasCheckoutId: checkout?.id,
       asaasCustomerId,
       asaasCustomer,
-      externalReference: payment?.externalReference ?? checkout?.externalReference,
+      asaasPayment,
+      externalReference: resolvedExternalReference,
     });
   }
 
