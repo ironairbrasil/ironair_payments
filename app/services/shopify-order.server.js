@@ -1,11 +1,18 @@
 import prisma from "../db.server";
 import { getAsaasConfig } from "../config/asaas.server";
 import { unauthenticated } from "../shopify.server";
+import { FREE_SHIPPING_TITLE } from "./free-shipping.server";
 
 const TEST_PRODUCT_TITLE = "Iron Air Sandbox";
 const TEST_VARIANT_TITLE = "127V";
 const MAX_SHOPIFY_TAG_LENGTH = 40;
 const DEV_SHOPIFY_SHOP = "ironair-dev.myshopify.com";
+const PIX_DISCOUNT_TYPE = "PIX";
+const PREORDER_TYPE = "preorder";
+
+function isPreorderShippingOption(shippingOption) {
+  return String(shippingOption?.serviceCode || "").toUpperCase() === "PREORDER";
+}
 
 function assertNoShopifyUserErrors(operation, userErrors) {
   if (userErrors?.length) {
@@ -15,12 +22,16 @@ function assertNoShopifyUserErrors(operation, userErrors) {
   }
 }
 
-function buildOrderTags(asaasPaymentId) {
+function buildOrderTags(asaasPaymentId, orderType) {
   const environmentTag =
     getAsaasConfig().env === "production"
       ? "iron-air-production"
       : "iron-air-sandbox";
-  const baseOrderTags = ["asaas", environmentTag];
+  const baseOrderTags = [
+    "asaas",
+    environmentTag,
+    ...(orderType === PREORDER_TYPE ? ["pre-venda", "iron-air-pre-venda"] : []),
+  ];
 
   if (!asaasPaymentId) {
     return baseOrderTags;
@@ -36,12 +47,15 @@ function buildOrderTags(asaasPaymentId) {
   ];
 }
 
-function buildOrderNote({ externalReference } = {}) {
+function buildOrderNote({ externalReference, orderType } = {}) {
   const environmentName =
     getAsaasConfig().env === "production" ? "production" : "sandbox";
 
   return [
     `Iron Air ${environmentName} checkout via Asaas.`,
+    orderType === PREORDER_TYPE
+      ? "Pedido realizado por meio do checkout de pré-venda.\nFrete cobrado do cliente: R$ 0,00.\nEnvio previsto após chegada e liberação do lote."
+      : null,
     externalReference ? `External reference: ${externalReference}` : null,
   ]
     .filter(Boolean)
@@ -186,6 +200,9 @@ function buildCustomAttributes({
   source,
   paidAt,
   paymentStatus,
+  shippingOption,
+  discount,
+  orderType,
 }) {
   return [
     customer?.cpfCnpj ? { key: "CPF/CNPJ", value: customer.cpfCnpj } : null,
@@ -193,6 +210,39 @@ function buildCustomAttributes({
     paidAt ? { key: "Data pagamento", value: formatDateTimeForBrazil(paidAt) } : null,
     externalReference ? { key: "externalReference", value: externalReference } : null,
     source ? { key: "source", value: source } : null,
+    orderType === PREORDER_TYPE ? { key: "orderType", value: PREORDER_TYPE } : null,
+    discount?.couponCode ? { key: "Cupom", value: discount.couponCode } : null,
+    discount?.discountAmount
+      ? { key: "Desconto valor", value: Number(discount.discountAmount).toFixed(2) }
+      : null,
+    discount?.discountType ? { key: "Desconto tipo", value: discount.discountType } : null,
+    shippingOption?.carrier
+      ? { key: "Frete transportadora", value: shippingOption.carrier }
+      : null,
+    shippingOption?.service
+      ? { key: "Frete servico", value: shippingOption.service }
+      : null,
+    shippingOption?.serviceCode
+      ? { key: "Frete codigo", value: shippingOption.serviceCode }
+      : null,
+    shippingOption?.price !== undefined
+      ? { key: "Frete valor", value: Number(shippingOption.price).toFixed(2) }
+      : null,
+    shippingOption?.originalPrice !== undefined
+      ? {
+          key: "Frete valor original",
+          value: Number(shippingOption.originalPrice).toFixed(2),
+        }
+      : null,
+    shippingOption?.isFreeShipping
+      ? { key: "Frete promocao", value: shippingOption.promotionLabel || FREE_SHIPPING_TITLE }
+      : null,
+    shippingOption?.deadlineDays !== undefined
+      ? { key: "Frete prazo", value: `${shippingOption.deadlineDays} dias uteis` }
+      : null,
+    shippingOption?.destinationCep
+      ? { key: "Frete CEP destino", value: shippingOption.destinationCep }
+      : null,
   ].filter(Boolean);
 }
 
@@ -228,6 +278,8 @@ function buildAsaasMetafields({
   invoiceUrl,
   externalReference,
   asaasPayment,
+  shippingOption,
+  discount,
 }) {
   return [
     asaasPaymentId
@@ -273,7 +325,183 @@ function buildAsaasMetafields({
           value: JSON.stringify(sanitizePayloadForLog(asaasPayment)),
         }
       : null,
+    discount?.couponCode
+      ? {
+          namespace: "ironair_discount",
+          key: "coupon_code",
+          type: "single_line_text_field",
+          value: discount.couponCode,
+        }
+      : null,
+    discount?.discountAmount
+      ? {
+          namespace: "ironair_discount",
+          key: "amount",
+          type: "number_decimal",
+          value: Number(discount.discountAmount).toFixed(2),
+        }
+      : null,
+    discount?.discountType
+      ? {
+          namespace: "ironair_discount",
+          key: "type",
+          type: "single_line_text_field",
+          value: discount.discountType,
+        }
+      : null,
+    shippingOption?.carrier
+      ? {
+          namespace: "ironair_shipping",
+          key: "carrier",
+          type: "single_line_text_field",
+          value: shippingOption.carrier,
+        }
+      : null,
+    shippingOption?.service
+      ? {
+          namespace: "ironair_shipping",
+          key: "service",
+          type: "single_line_text_field",
+          value: shippingOption.service,
+        }
+      : null,
+    shippingOption?.serviceCode
+      ? {
+          namespace: "ironair_shipping",
+          key: "service_code",
+          type: "single_line_text_field",
+          value: shippingOption.serviceCode,
+        }
+      : null,
+    shippingOption?.price !== undefined
+      ? {
+          namespace: "ironair_shipping",
+          key: "price",
+          type: "number_decimal",
+          value: Number(shippingOption.price).toFixed(2),
+        }
+      : null,
+    shippingOption?.originalPrice !== undefined
+      ? {
+          namespace: "ironair_shipping",
+          key: "original_price",
+          type: "number_decimal",
+          value: Number(shippingOption.originalPrice).toFixed(2),
+        }
+      : null,
+    shippingOption?.isFreeShipping
+      ? {
+          namespace: "ironair_shipping",
+          key: "promotion",
+          type: "single_line_text_field",
+          value: shippingOption.promotionLabel || FREE_SHIPPING_TITLE,
+        }
+      : null,
+    shippingOption?.deadlineDays !== undefined
+      ? {
+          namespace: "ironair_shipping",
+          key: "deadline_days",
+          type: "number_integer",
+          value: String(shippingOption.deadlineDays),
+        }
+      : null,
+    shippingOption?.destinationCep
+      ? {
+          namespace: "ironair_shipping",
+          key: "destination_cep",
+          type: "single_line_text_field",
+          value: shippingOption.destinationCep,
+        }
+      : null,
   ].filter(Boolean);
+}
+
+function getMappedShippingOption(mappedOrder = {}) {
+  if (!mappedOrder.shippingCarrier) {
+    return null;
+  }
+
+  return {
+    carrier: mappedOrder.shippingCarrier,
+    service: mappedOrder.shippingService,
+    serviceCode: mappedOrder.shippingServiceCode,
+    price: mappedOrder.shippingPrice,
+    deadlineDays: mappedOrder.shippingDeadlineDays,
+    destinationCep: mappedOrder.shippingDestinationCep,
+  };
+}
+
+function getMappedDiscount(mappedOrder = {}) {
+  if (!mappedOrder.couponCode || !Number(mappedOrder.discountAmount)) {
+    return null;
+  }
+
+  return {
+    couponCode: mappedOrder.couponCode,
+    discountAmount: Number(mappedOrder.discountAmount),
+    discountType: mappedOrder.discountType || PIX_DISCOUNT_TYPE,
+  };
+}
+
+function roundMoney(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function buildPixDiscount(verifiedItems, couponCode) {
+  if (!couponCode) {
+    return null;
+  }
+
+  const subtotal = verifiedItems.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0,
+  );
+  const discountAmount = roundMoney(subtotal * 0.1);
+
+  if (discountAmount <= 0) {
+    return null;
+  }
+
+  return {
+    couponCode,
+    discountAmount,
+    discountType: PIX_DISCOUNT_TYPE,
+  };
+}
+
+function buildShopifyAppliedDiscount(discount) {
+  if (!discount?.discountAmount) {
+    return undefined;
+  }
+
+  return {
+    title: discount.couponCode,
+    description: "Desconto Pix Iron Air",
+    value: Number(discount.discountAmount.toFixed(2)),
+    valueType: "FIXED_AMOUNT",
+    amountWithCurrency: {
+      amount: Number(discount.discountAmount).toFixed(2),
+      currencyCode: "BRL",
+    },
+  };
+}
+
+function buildShopifyShippingLine(shippingOption) {
+  if (!shippingOption) {
+    return undefined;
+  }
+
+  return {
+    title:
+      shippingOption.title ||
+      (shippingOption.isFreeShipping
+        ? FREE_SHIPPING_TITLE
+        : `${shippingOption.carrier} ${shippingOption.service}`),
+    priceWithCurrency: {
+      amount: Number(shippingOption.price || 0).toFixed(2),
+      currencyCode: "BRL",
+    },
+  };
 }
 
 function buildBrazilTaxLocalizedFields(customer = {}) {
@@ -348,6 +576,152 @@ async function updateCompletedShopifyOrderMetadata(orderId, input) {
   );
 
   return data.orderUpdate.order;
+}
+
+export async function updateShopifyOrderCorreiosMetadata(
+  orderId,
+  {
+    shippingStatus,
+    prePostageId,
+    trackingCode,
+    labelUrl,
+    error,
+  } = {},
+) {
+  if (!orderId) {
+    return null;
+  }
+
+  const metafields = [
+    shippingStatus
+      ? {
+          namespace: "ironair_shipping",
+          key: "status",
+          type: "single_line_text_field",
+          value: shippingStatus,
+        }
+      : null,
+    prePostageId
+      ? {
+          namespace: "ironair_shipping",
+          key: "correios_prepostage_id",
+          type: "single_line_text_field",
+          value: prePostageId,
+        }
+      : null,
+    trackingCode
+      ? {
+          namespace: "ironair_shipping",
+          key: "correios_tracking_code",
+          type: "single_line_text_field",
+          value: trackingCode,
+        }
+      : null,
+    labelUrl
+      ? {
+          namespace: "ironair_shipping",
+          key: "correios_label_url",
+          type: "url",
+          value: labelUrl,
+        }
+      : null,
+    error
+      ? {
+          namespace: "ironair_shipping",
+          key: "correios_error",
+          type: "multi_line_text_field",
+          value: String(error).slice(0, 5000),
+        }
+      : null,
+  ].filter(Boolean);
+
+  if (!metafields.length) {
+    return null;
+  }
+
+  return updateCompletedShopifyOrderMetadata(orderId, { metafields });
+}
+
+export async function createShopifyFulfillmentWithTracking(
+  orderId,
+  trackingCode,
+) {
+  if (!orderId || !trackingCode) {
+    return null;
+  }
+
+  const trackingUrl = `https://www.correios.com.br/rastreamento?objetos=${encodeURIComponent(
+    trackingCode,
+  )}`;
+  const fulfillmentOrderData = await shopifyGraphql(
+    `#graphql
+      query getFulfillmentOrders($id: ID!) {
+        order(id: $id) {
+          fulfillmentOrders(first: 10) {
+            nodes {
+              id
+              status
+            }
+          }
+        }
+      }`,
+    { id: orderId },
+  );
+  const fulfillmentOrders =
+    fulfillmentOrderData.order?.fulfillmentOrders?.nodes || [];
+  const fulfillableOrders = fulfillmentOrders.filter((fulfillmentOrder) =>
+    ["OPEN", "IN_PROGRESS", "SCHEDULED"].includes(
+      String(fulfillmentOrder.status || "").toUpperCase(),
+    ),
+  );
+
+  if (!fulfillableOrders.length) {
+    return {
+      skipped: true,
+      reason: "No open Shopify fulfillment order found.",
+    };
+  }
+
+  const data = await shopifyGraphql(
+    `#graphql
+      mutation createFulfillment($fulfillment: FulfillmentV2Input!) {
+        fulfillmentCreateV2(fulfillment: $fulfillment) {
+          fulfillment {
+            id
+            status
+            trackingInfo {
+              company
+              number
+              url
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      fulfillment: {
+        lineItemsByFulfillmentOrder: fulfillableOrders.map((fulfillmentOrder) => ({
+          fulfillmentOrderId: fulfillmentOrder.id,
+        })),
+        notifyCustomer: false,
+        trackingInfo: {
+          company: "Correios",
+          number: trackingCode,
+          url: trackingUrl,
+        },
+      },
+    },
+  );
+
+  assertNoShopifyUserErrors(
+    "fulfillmentCreateV2",
+    data.fulfillmentCreateV2.userErrors,
+  );
+
+  return data.fulfillmentCreateV2.fulfillment;
 }
 
 async function getTestVariant() {
@@ -482,6 +856,7 @@ export async function getVerifiedShopifyCheckoutItems(items) {
 
 export async function createDraftShopifyOrderForIronAirCheckout(payload) {
   const verifiedItems = await getVerifiedShopifyCheckoutItems(payload.items);
+  const discount = buildPixDiscount(verifiedItems, payload.couponCode);
   const externalReference = payload.externalReference;
   const shippingAddress = buildCheckoutShopifyAddress(
     payload.shippingAddress,
@@ -503,6 +878,9 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
     externalReference,
     customer: payload.customer,
     source: "ironair_custom_checkout",
+    shippingOption: payload.shippingOption,
+    discount,
+    orderType: payload.orderType,
   });
   const input = {
     email: payload.customer.email,
@@ -512,9 +890,11 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
     sourceName: getSourceName(),
     taxExempt: true,
     visibleToCustomer: false,
-    tags: buildOrderTags(),
-    note: buildOrderNote({ externalReference }),
+    tags: buildOrderTags(undefined, payload.orderType),
+    note: buildOrderNote({ externalReference, orderType: payload.orderType }),
     customAttributes,
+    appliedDiscount: buildShopifyAppliedDiscount(discount),
+    shippingLine: buildShopifyShippingLine(payload.shippingOption),
     localizedFields: buildBrazilTaxLocalizedFields(payload.customer),
     lineItems,
   };
@@ -555,10 +935,11 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
   return {
     draftOrder: data.draftOrderCreate.draftOrder,
     items: verifiedItems,
-    value: verifiedItems.reduce(
+    value: roundMoney(verifiedItems.reduce(
       (total, item) => total + item.price * item.quantity,
       0,
-    ),
+    ) - Number(discount?.discountAmount || 0) + Number(payload.shippingOption?.price || 0)),
+    discount,
   };
 }
 
@@ -729,7 +1110,20 @@ export async function attachAsaasPaymentToDraftOrder({
   invoiceUrl,
   checkoutUrl,
   customer,
+  shippingOption,
+  couponCode,
+  discountAmount,
+  discountType,
+  orderType,
 }) {
+  const discount =
+    couponCode && Number(discountAmount) > 0
+      ? {
+          couponCode,
+          discountAmount: Number(discountAmount),
+          discountType: discountType || PIX_DISCOUNT_TYPE,
+        }
+      : null;
   const existingOrder = await prisma.asaasShopifyOrder.findFirst({
     where: {
       OR: [
@@ -762,16 +1156,20 @@ export async function attachAsaasPaymentToDraftOrder({
     {
       id: draftOrder.id,
       input: {
-        tags: buildOrderTags(asaasPaymentId),
+        tags: buildOrderTags(asaasPaymentId, orderType),
         note: buildOrderNote({
           asaasPaymentId,
           externalReference,
           invoiceUrl,
+          orderType,
         }),
         customAttributes: buildCustomAttributes({
           externalReference,
           customer,
           source: customer ? "ironair_custom_checkout" : undefined,
+          shippingOption,
+          discount,
+          orderType,
         }),
         metafields: buildAsaasMetafields({
           asaasPaymentId,
@@ -779,6 +1177,8 @@ export async function attachAsaasPaymentToDraftOrder({
           asaasCustomerId,
           invoiceUrl,
           externalReference,
+          shippingOption,
+          discount,
         }),
         localizedFields: buildBrazilTaxLocalizedFields(customer),
       },
@@ -807,6 +1207,16 @@ export async function attachAsaasPaymentToDraftOrder({
         invoiceUrl,
         asaasCheckoutUrl: checkoutUrl,
         value: Number(value),
+        couponCode: discount?.couponCode || null,
+        discountAmount: discount?.discountAmount || null,
+        discountType: discount?.discountType || null,
+        shippingCarrier: shippingOption?.carrier || null,
+        shippingService: shippingOption?.service || null,
+        shippingServiceCode: shippingOption?.serviceCode || null,
+        shippingPrice:
+          shippingOption?.price !== undefined ? Number(shippingOption.price) : null,
+        shippingDeadlineDays: shippingOption?.deadlineDays ?? null,
+        shippingDestinationCep: shippingOption?.destinationCep || null,
       },
     });
   } catch (error) {
@@ -903,6 +1313,19 @@ export async function completeDraftOrderForAsaasPayment(
   }
 
   if (mappedOrder.status === "PAID") {
+    const shippingOption = getMappedShippingOption(mappedOrder);
+
+    if (
+      shippingOption &&
+      !isPreorderShippingOption(shippingOption) &&
+      !mappedOrder.shippingStatus
+    ) {
+      await prisma.asaasShopifyOrder.update({
+        where: { id: mappedOrder.id },
+        data: { shippingStatus: "AWAITING_LABEL" },
+      });
+    }
+
     if (mappedOrder.shopifyOrderId) {
       await updateCompletedShopifyOrderMetadata(mappedOrder.shopifyOrderId, {
         customAttributes: buildCustomAttributes({
@@ -910,6 +1333,7 @@ export async function completeDraftOrderForAsaasPayment(
           customer: asaasCustomer || {},
           paidAt: mappedOrder.paidAt || new Date().toISOString(),
           paymentStatus: getPaymentLabel(asaasPayment),
+          shippingOption,
         }),
         metafields: buildAsaasMetafields({
           asaasPaymentId: asaasPaymentId || mappedOrder.asaasPaymentId,
@@ -918,6 +1342,7 @@ export async function completeDraftOrderForAsaasPayment(
           invoiceUrl: mappedOrder.invoiceUrl,
           externalReference: mappedOrder.externalReference,
           asaasPayment,
+          shippingOption,
         }),
       });
     }
@@ -938,6 +1363,8 @@ export async function completeDraftOrderForAsaasPayment(
   const checkoutId = asaasCheckoutId || mappedOrder.asaasCheckoutId;
   const paymentId = asaasPaymentId || mappedOrder.asaasPaymentId;
   const hasCustomerAddress = hasAsaasAddress(effectiveCustomer);
+  const shippingOption = getMappedShippingOption(mappedOrder);
+  const discount = getMappedDiscount(mappedOrder);
 
   console.log("[asaas] Payment data selected for Shopify.", {
     response: sanitizePayloadForLog(asaasPayment),
@@ -988,6 +1415,8 @@ export async function completeDraftOrderForAsaasPayment(
             customer: effectiveCustomer,
             paidAt: new Date().toISOString(),
             paymentStatus: getPaymentLabel(asaasPayment),
+            shippingOption,
+            discount,
           }),
         ],
         metafields: buildAsaasMetafields({
@@ -997,6 +1426,8 @@ export async function completeDraftOrderForAsaasPayment(
           invoiceUrl: mappedOrder.invoiceUrl,
           externalReference: mappedOrder.externalReference,
           asaasPayment,
+          shippingOption,
+          discount,
         }),
         localizedFields: buildBrazilTaxLocalizedFields(effectiveCustomer),
       };
@@ -1098,6 +1529,8 @@ export async function completeDraftOrderForAsaasPayment(
       customer: effectiveCustomer,
       paidAt: new Date().toISOString(),
       paymentStatus: getPaymentLabel(asaasPayment),
+      shippingOption,
+      discount,
     }),
     metafields: buildAsaasMetafields({
       asaasPaymentId: paymentId,
@@ -1106,6 +1539,8 @@ export async function completeDraftOrderForAsaasPayment(
       invoiceUrl: mappedOrder.invoiceUrl,
       externalReference: mappedOrder.externalReference,
       asaasPayment,
+      shippingOption,
+      discount,
     }),
   });
 
@@ -1118,6 +1553,11 @@ export async function completeDraftOrderForAsaasPayment(
       asaasCustomerId: asaasCustomerId || mappedOrder.asaasCustomerId,
       shopifyOrderId: order.id,
       shopifyOrderName: order.name,
+      shippingStatus:
+        shippingOption && !isPreorderShippingOption(shippingOption)
+          ? "AWAITING_LABEL"
+          : null,
+      correiosError: null,
       paidAt: new Date(),
     },
   });

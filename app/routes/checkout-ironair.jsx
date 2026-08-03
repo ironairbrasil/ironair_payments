@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLoaderData } from "react-router";
 
 import checkoutStyles from "../styles/checkout-ironair.css?url";
@@ -55,6 +55,9 @@ const DEFAULT_ITEM = {
 };
 
 const STORE_ORIGIN = "https://ironair.com.br";
+const PIX_COUPON_CODE = "PIX10";
+export const PREORDER_SHIPPING_ESTIMATE =
+  "Envio previsto em até 30 dias, após a chegada e liberação do produto no Brasil.";
 
 export function links() {
   return [{ rel: "stylesheet", href: checkoutStyles }];
@@ -77,6 +80,10 @@ function decodeValue(value) {
 }
 
 function parseCurrency(value, fallback = 0) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
   const raw = decodeValue(value);
   if (!raw) return fallback;
 
@@ -306,6 +313,9 @@ export async function loader({ request }) {
     prefill: parsePrefill(url.searchParams),
     itemLoadError,
     externalReference: url.searchParams.get("externalReference") || "",
+    couponCode:
+      queryValue(url.searchParams, ["coupon", "couponCode", "discount", "discountCode"]) ||
+      "",
   };
 }
 
@@ -385,6 +395,10 @@ function formatMoney(value) {
   }).format(Number(value) || 0);
 }
 
+function normalizeCouponCode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
 function Field({
   label,
   name,
@@ -411,7 +425,15 @@ function Field({
 }
 
 export default function IronAirCheckout() {
-  const { items, prefill, itemLoadError, externalReference } = useLoaderData();
+  const {
+    items,
+    prefill,
+    itemLoadError,
+    externalReference,
+    couponCode: initialCouponCode,
+    checkoutMode,
+  } = useLoaderData();
+  const preorder = checkoutMode === "preorder";
   const [form, setForm] = useState({
     email: prefill.email || "",
     name: prefill.name || "",
@@ -429,6 +451,7 @@ export default function IronAirCheckout() {
   });
   const [errors, setErrors] = useState({});
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [couponCode, setCouponCode] = useState(normalizeCouponCode(initialCouponCode));
   const [card, setCard] = useState({
     holderName: "",
     number: "",
@@ -437,11 +460,19 @@ export default function IronAirCheckout() {
     installments: "1",
   });
   const [cepLoading, setCepLoading] = useState(false);
+  const lastCepLookupRef = useRef("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
   const [pixPayment, setPixPayment] = useState(null);
   const [pixStatus, setPixStatus] = useState("");
+  const [cardPayment, setCardPayment] = useState(null);
+  const [cardStatus, setCardStatus] = useState("");
+  const [shippingOptions, setShippingOptions] = useState([]);
+  const [selectedShippingOption, setSelectedShippingOption] = useState(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState("");
+  const [shippingQuotedCep, setShippingQuotedCep] = useState("");
   const subtotal = useMemo(
     () =>
       items.reduce(
@@ -451,6 +482,21 @@ export default function IronAirCheckout() {
       ),
     [items],
   );
+  const shippingTotal = Number(selectedShippingOption?.price) || 0;
+  const selectedShippingOriginalTotal = Number(
+    selectedShippingOption?.originalPrice ?? selectedShippingOption?.price ?? 0,
+  );
+  const selectedShippingIsFree = Boolean(selectedShippingOption?.isFreeShipping);
+  const normalizedCouponCode = normalizeCouponCode(couponCode);
+  const couponIsPix10 = normalizedCouponCode === PIX_COUPON_CODE;
+  const couponError =
+    normalizedCouponCode && !couponIsPix10
+      ? "Cupom inválido."
+      : couponIsPix10 && paymentMethod !== "PIX"
+        ? "O cupom PIX10 é válido somente para pagamento via Pix."
+        : "";
+  const discountAmount = couponIsPix10 && paymentMethod === "PIX" ? subtotal * 0.1 : 0;
+  const checkoutTotal = subtotal - discountAmount + shippingTotal;
 
   function updateField(name, value) {
     let nextValue = value;
@@ -461,6 +507,13 @@ export default function IronAirCheckout() {
 
     setForm((current) => ({ ...current, [name]: nextValue }));
     setErrors((current) => ({ ...current, [name]: "" }));
+
+    if (name === "postalCode" && !preorder) {
+      setSelectedShippingOption(null);
+      setShippingOptions([]);
+      setShippingError("");
+      setShippingQuotedCep("");
+    }
   }
 
   function updateCardField(name, value) {
@@ -482,6 +535,10 @@ export default function IronAirCheckout() {
       return;
     }
 
+    if (lastCepLookupRef.current === cep) return;
+
+    lastCepLookupRef.current = cep;
+
     setCepLoading(true);
 
     try {
@@ -501,6 +558,7 @@ export default function IronAirCheckout() {
         provinceCode: data.uf || current.provinceCode,
       }));
     } catch {
+      lastCepLookupRef.current = "";
       setErrors((current) => ({
         ...current,
         postalCode: "Não foi possível buscar o CEP.",
@@ -509,6 +567,30 @@ export default function IronAirCheckout() {
       setCepLoading(false);
     }
   }
+
+  async function handleCepKeyDown(event) {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    await lookupCep();
+  }
+
+  useEffect(() => {
+    const cep = onlyDigits(form.postalCode);
+
+    if (cep.length !== 8 || lastCepLookupRef.current === cep) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      lookupCep();
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+    // lookupCep intentionally reads the latest checkout form state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.postalCode]);
 
   function validateForm() {
     const nextErrors = {};
@@ -525,6 +607,10 @@ export default function IronAirCheckout() {
     if (!form.neighborhood.trim()) nextErrors.neighborhood = "Informe o bairro.";
     if (!form.city.trim()) nextErrors.city = "Informe a cidade.";
     if (!/^[A-Z]{2}$/.test(form.provinceCode)) nextErrors.provinceCode = "UF inválida.";
+    if (!preorder && !selectedShippingOption) {
+      nextErrors.shipping = "Selecione uma opção de frete.";
+    }
+    if (couponError) nextErrors.coupon = couponError;
 
     if (paymentMethod === "CREDIT_CARD") {
       const [expiryMonth = "", expiryYear = ""] = card.expiry.split("/");
@@ -548,6 +634,8 @@ export default function IronAirCheckout() {
     setPaymentNotice("");
     setPixPayment(null);
     setPixStatus("");
+    setCardPayment(null);
+    setCardStatus("");
 
     if (itemLoadError || subtotal <= 0) {
       setFormError(
@@ -593,7 +681,9 @@ export default function IronAirCheckout() {
           phone: onlyDigits(form.phone),
         },
         paymentMethod,
+        couponCode: normalizedCouponCode,
         items: items.filter(itemIsPayable),
+        ...(preorder ? {} : { shippingOption: selectedShippingOption }),
       };
 
       if (paymentMethod === "CREDIT_CARD") {
@@ -609,11 +699,14 @@ export default function IronAirCheckout() {
         };
       }
 
-      const response = await fetch("/api/checkout/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        preorder ? "/api/checkout/preorder/create" : "/api/checkout/create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -634,7 +727,12 @@ export default function IronAirCheckout() {
       } else {
         setPixPayment(null);
         setPixStatus("");
-        setPaymentNotice("Pagamento enviado para processamento.");
+        setCardPayment({
+          paymentId: data.paymentId,
+          externalReference: data.externalReference,
+        });
+        setCardStatus(data.paymentStatus || "PENDING");
+        setPaymentNotice("Pagamento enviado para confirmação.");
       }
     } catch (error) {
       setFormError(error instanceof Error ? error.message : String(error));
@@ -648,6 +746,102 @@ export default function IronAirCheckout() {
 
     await navigator.clipboard.writeText(pixPayment.payload);
   }
+
+  function redirectToSuccess(payment) {
+    const successParams = new URLSearchParams({
+      paymentId: payment.paymentId,
+      externalReference: payment.externalReference || "",
+    });
+
+    window.location.assign(`/checkout/success?${successParams}`);
+  }
+
+  useEffect(() => {
+    if (preorder) {
+      return undefined;
+    }
+
+    const destinationCep = onlyDigits(form.postalCode);
+    const payableItems = items.filter(itemIsPayable);
+
+    if (destinationCep.length !== 8 || !payableItems.length) {
+      setShippingLoading(false);
+      return undefined;
+    }
+
+    if (destinationCep === shippingQuotedCep && shippingOptions.length) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    let cancelled = false;
+
+    async function quoteShipping() {
+      setShippingLoading(true);
+      setShippingError("");
+      setShippingOptions([]);
+      setSelectedShippingOption(null);
+
+      try {
+        const response = await fetch("/api/shipping/correios/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            destinationCep,
+            destinationState: form.provinceCode,
+            items: payableItems,
+          }),
+        });
+        const data = await response.json();
+
+        if (cancelled) return;
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Não foi possível cotar o frete.");
+        }
+
+        const options = Array.isArray(data.options)
+          ? data.options
+              .filter((option) => Number(option.price) >= 0)
+              .sort((first, second) => Number(first.price) - Number(second.price))
+          : [];
+
+        if (!options.length) {
+          throw new Error("Não encontramos opções de frete para este CEP.");
+        }
+
+        setShippingOptions(options);
+        setShippingQuotedCep(destinationCep);
+      } catch (error) {
+        if (cancelled) return;
+
+        setShippingOptions([]);
+        setSelectedShippingOption(null);
+        setShippingError(
+          error instanceof DOMException && error.name === "AbortError"
+            ? "A cotação demorou demais. Confira o CEP e tente novamente."
+            : error instanceof Error
+              ? error.message
+              : "Não foi possível cotar o frete agora.",
+        );
+      } finally {
+        if (!cancelled) {
+          setShippingLoading(false);
+        }
+        window.clearTimeout(timeout);
+      }
+    }
+
+    quoteShipping();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [preorder, form.postalCode, form.provinceCode, items, shippingOptions.length, shippingQuotedCep]);
 
   useEffect(() => {
     if (!pixPayment?.paymentId || pixStatus === "PAID") {
@@ -670,12 +864,7 @@ export default function IronAirCheckout() {
         setPixStatus(data.paid ? "PAID" : data.status || "PENDING");
 
         if (data.paid) {
-          const successParams = new URLSearchParams({
-            paymentId: pixPayment.paymentId,
-            externalReference: pixPayment.externalReference || "",
-          });
-
-          window.location.assign(`/checkout/success?${successParams}`);
+          redirectToSuccess(pixPayment);
         }
       } catch {
         // Keep polling; the webhook may still finish the order.
@@ -691,6 +880,46 @@ export default function IronAirCheckout() {
     };
   }, [pixPayment, pixStatus]);
 
+  useEffect(() => {
+    if (!cardPayment?.paymentId || cardStatus === "PAID") {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkPaymentStatus() {
+      try {
+        const params = new URLSearchParams({
+          paymentId: cardPayment.paymentId,
+          externalReference: cardPayment.externalReference || "",
+        });
+        const response = await fetch(`/api/checkout/status?${params}`);
+        const data = await response.json();
+
+        if (cancelled || !data.success) return;
+
+        setCardStatus(data.paid ? "PAID" : data.status || "PENDING");
+
+        if (data.paid) {
+          setPaymentNotice("Pagamento confirmado. Redirecionando...");
+          redirectToSuccess(cardPayment);
+        } else {
+          setPaymentNotice("Pagamento enviado para confirmação.");
+        }
+      } catch {
+        // Keep polling; the webhook may still finish the order.
+      }
+    }
+
+    checkPaymentStatus();
+    const interval = window.setInterval(checkPaymentStatus, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [cardPayment, cardStatus]);
+
   return (
     <main className="ia-checkout">
       <section className="ia-left">
@@ -705,6 +934,13 @@ export default function IronAirCheckout() {
             Checkout seguro
           </div>
         </header>
+
+        {preorder ? (
+          <div className="ia-preorder-topbar">
+            <strong>Pré-venda Iron Air</strong>
+            <span>Garanta agora sua unidade do próximo lote.</span>
+          </div>
+        ) : null}
 
         <form
           id="ironair-checkout-form"
@@ -768,6 +1004,7 @@ export default function IronAirCheckout() {
                 onChange={updateField}
                 error={errors.postalCode}
                 inputMode="numeric"
+                onKeyDown={handleCepKeyDown}
               >
                 <button
                   className="ia-cep"
@@ -848,6 +1085,81 @@ export default function IronAirCheckout() {
             </label>
           </section>
 
+          <section className="ia-section ia-shipping">
+            <h2>Frete</h2>
+            <div className="ia-shipping-banner">
+              <strong>Frete Grátis para todo o Brasil</strong>
+              <span>
+                {preorder
+                  ? "O envio será realizado após a chegada e liberação do lote da pré-venda."
+                  : "PAC ou SEDEX grátis conforme disponibilidade no seu CEP."}
+              </span>
+            </div>
+            {preorder ? (
+              <div className="ia-preorder-shipping-option">
+                <span className="ia-preorder-radio" aria-hidden="true" />
+                <span>
+                  <strong>Pré-venda — Frete grátis</strong>
+                  <small>{PREORDER_SHIPPING_ESTIMATE}</small>
+                </span>
+                <b>Grátis</b>
+              </div>
+            ) : null}
+            {!preorder && shippingLoading ? (
+              <div className="ia-shipping-state">Cotando PAC e SEDEX...</div>
+            ) : null}
+            {!preorder && shippingError ? <div className="ia-error">{shippingError}</div> : null}
+            {!preorder && !shippingLoading && !shippingError && !shippingOptions.length ? (
+              <div className="ia-shipping-state">
+                Informe um CEP válido para ver as opções de entrega.
+              </div>
+            ) : null}
+            {!preorder && shippingOptions.length ? (
+              <div className="ia-shipping-options">
+                {shippingOptions.map((option) => {
+                  const isSelected =
+                    selectedShippingOption?.serviceCode === option.serviceCode;
+
+                  return (
+                    <button
+                      className={`ia-shipping-option ${isSelected ? "is-selected" : ""}`}
+                      key={option.serviceCode}
+                      type="button"
+                      onClick={() =>
+                        setSelectedShippingOption({
+                          ...option,
+                          destinationCep: onlyDigits(form.postalCode),
+                        })
+                      }
+                    >
+                      <input
+                        aria-label={`Selecionar frete ${option.service}`}
+                        checked={isSelected}
+                        readOnly
+                        type="radio"
+                      />
+                      <span className="ia-shipping-copy">
+                        <strong>{option.service}</strong>
+                        <small>{option.deadlineDays} dias úteis</small>
+                      </span>
+                      <b className={option.isFreeShipping ? "ia-free-shipping-price" : ""}>
+                        {option.isFreeShipping ? (
+                          <>
+                            <s>{formatMoney(option.originalPrice ?? option.price)}</s>
+                            <span>Grátis</span>
+                          </>
+                        ) : (
+                          formatMoney(option.price)
+                        )}
+                      </b>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {!preorder && errors.shipping ? <div className="ia-error">{errors.shipping}</div> : null}
+          </section>
+
           {itemLoadError ? <div className="ia-error">{itemLoadError}</div> : null}
           {formError ? <div className="ia-error">{formError}</div> : null}
         </form>
@@ -855,6 +1167,14 @@ export default function IronAirCheckout() {
 
       <aside className="ia-right">
         <div className="ia-summary">
+          {preorder ? (
+            <section className="ia-preorder-notice">
+              <strong>Produto em pré-venda</strong>
+              <p>Esta compra garante sua unidade do próximo lote.</p>
+              <p>{PREORDER_SHIPPING_ESTIMATE}</p>
+              <p>Os pedidos serão enviados por ordem de compra.</p>
+            </section>
+          ) : null}
           <div className="ia-products">
             {items.map((item, index) => (
               <div className="ia-product" key={item.key || `${item.variantId}-${index}`}>
@@ -880,20 +1200,57 @@ export default function IronAirCheckout() {
             ) : null}
           </div>
 
+          <div className="ia-coupon">
+            <label className={`ia-field ${couponError ? "has-error" : ""}`}>
+              <span>Desconto</span>
+              <input
+                name="couponCode"
+                value={couponCode}
+                onChange={(event) => {
+                  setCouponCode(normalizeCouponCode(event.target.value));
+                  setErrors((current) => ({ ...current, coupon: "" }));
+                }}
+                placeholder="Insira o cupom"
+              />
+              {couponError || errors.coupon ? <small>{couponError || errors.coupon}</small> : null}
+            </label>
+          </div>
+
           <div className="ia-lines">
             <div>
               <span>Subtotal</span>
               <strong>{formatMoney(subtotal)}</strong>
             </div>
+            {couponIsPix10 && paymentMethod === "PIX" ? (
+              <div className="ia-discount-line">
+                <span>Desconto PIX</span>
+                <strong>-{formatMoney(discountAmount)}</strong>
+              </div>
+            ) : null}
             <div>
               <span>Frete</span>
-              <strong className="muted">Grátis</strong>
+              <strong className={preorder || selectedShippingOption ? "" : "muted"}>
+                {preorder ? (
+                  "Grátis"
+                ) : selectedShippingOption ? (
+                  selectedShippingIsFree ? (
+                    <span className="ia-summary-free-shipping">
+                      <s>{formatMoney(selectedShippingOriginalTotal)}</s>
+                      <span>Grátis</span>
+                    </span>
+                  ) : (
+                    formatMoney(shippingTotal)
+                  )
+                ) : (
+                  "Selecione"
+                )}
+              </strong>
             </div>
           </div>
 
           <div className="ia-total">
             <span>Total</span>
-            <strong>{formatMoney(subtotal)}</strong>
+            <strong>{formatMoney(checkoutTotal)}</strong>
           </div>
 
           <section className="ia-payment">
@@ -1030,14 +1387,21 @@ export default function IronAirCheckout() {
             className="ia-submit"
             type="submit"
             form="ironair-checkout-form"
-            disabled={loading || Boolean(itemLoadError) || subtotal <= 0}
+            disabled={
+              loading ||
+              (!preorder && shippingLoading) ||
+              Boolean(itemLoadError) ||
+              subtotal <= 0
+            }
           >
             <span>
               {loading
                 ? "Processando..."
-                : paymentMethod === "PIX"
-                  ? "Gerar Pix"
-                  : "Pagar com cartão"}
+                : preorder
+                  ? "GARANTIR MINHA UNIDADE"
+                  : paymentMethod === "PIX"
+                    ? "Gerar Pix"
+                    : "Pagar com cartão"}
             </span>
             <ArrowRight size={28} />
           </button>

@@ -8,6 +8,7 @@ import {
   checkoutJson,
 } from "../services/checkout-flow.server";
 import { completeDraftOrderForAsaasPayment } from "../services/shopify-order.server";
+import { createCorreiosPrePostageIfEligible } from "../services/correios-order.server";
 
 export async function loader({ request }) {
   if (request.method === "OPTIONS") {
@@ -38,12 +39,23 @@ export async function loader({ request }) {
     if (paid) {
       const asaasCustomer = await getAsaasCustomer(payment.customer);
 
-      await completeDraftOrderForAsaasPayment(paymentId, {
+      const completedOrder = await completeDraftOrderForAsaasPayment(paymentId, {
         asaasCustomerId: payment.customer,
         asaasCustomer,
         asaasPayment: payment,
         externalReference: payment.externalReference || externalReference,
       });
+
+      if (completedOrder) {
+        await createCorreiosPrePostageIfEligible(completedOrder, {
+          customer: asaasCustomer,
+        }).catch((error) => {
+          console.warn("[correios] Checkout status pre-postage failed.", {
+            orderId: completedOrder.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
     }
 
     return checkoutJson({

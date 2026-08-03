@@ -12,10 +12,23 @@ import {
   findAsaasShopifyOrderByExternalReference,
   markDraftOrderAsFailed,
 } from "./shopify-order.server";
+import { quoteCorreiosShipping } from "./correios.server";
+import {
+  applyFreeShippingToOption,
+  getStateFromCep,
+  isBrazilState,
+} from "./free-shipping.server";
+import {
+  createPreorderShippingOption,
+  namespaceCheckoutExternalReference,
+  normalizeCheckoutQuantity,
+  PREORDER_TYPE,
+} from "./preorder-checkout.server";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UF_PATTERN = /^[A-Z]{2}$/;
 const PAYMENT_METHODS = new Set(["PIX", "CREDIT_CARD"]);
+const PIX_COUPON_CODE = "PIX10";
 
 function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
@@ -84,7 +97,108 @@ function sanitizeForLog(value) {
   );
 }
 
-export function normalizeIronAirCheckoutPayload(payload) {
+function normalizeShippingOption(value = {}) {
+  const carrier = String(value.carrier || "").trim();
+  const service = String(value.service || "").trim().toUpperCase();
+  const serviceCode = String(value.serviceCode || "").trim();
+  const price = Number(value.price);
+  const deadlineDays = Number(value.deadlineDays);
+  const destinationCep = onlyDigits(value.destinationCep);
+
+  if (!carrier || carrier.toUpperCase() !== "CORREIOS") {
+    throw new Error("Selecione uma opção de frete válida.");
+  }
+
+  if (!["PAC", "SEDEX"].includes(service) || !serviceCode) {
+    throw new Error("Selecione PAC ou SEDEX para continuar.");
+  }
+
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error("Valor de frete inválido.");
+  }
+
+  if (!Number.isInteger(deadlineDays) || deadlineDays < 0) {
+    throw new Error("Prazo de frete inválido.");
+  }
+
+  if (destinationCep.length !== 8) {
+    throw new Error("CEP de frete inválido.");
+  }
+
+  return {
+    carrier: "Correios",
+    service,
+    serviceCode,
+    price,
+    originalPrice:
+      value.originalPrice !== undefined ? Number(value.originalPrice) : price,
+    isFreeShipping: Boolean(value.isFreeShipping),
+    promotionLabel: String(value.promotionLabel || "").trim(),
+    title: String(value.title || "").trim(),
+    deadlineDays,
+    destinationCep,
+  };
+}
+
+async function verifyCheckoutShippingOption(payload) {
+  const destinationCep = payload.shippingAddress.postalCode;
+  const selectedOption = payload.shippingOption;
+  const addressState = payload.shippingAddress.provinceCode;
+
+  if (selectedOption.destinationCep !== destinationCep) {
+    throw new Error("O CEP do frete selecionado não corresponde ao endereço.");
+  }
+
+  const quote = await quoteCorreiosShipping({
+    destinationCep,
+    destinationState: addressState,
+    items: payload.items,
+  });
+  const confirmedState = quote.destinationAddress?.uf || getStateFromCep(destinationCep);
+
+  if (confirmedState && confirmedState !== addressState) {
+    throw new Error("O CEP informado não corresponde ao estado do endereço.");
+  }
+
+  const quotedOption = quote.options.find(
+    (option) =>
+      option.serviceCode === selectedOption.serviceCode &&
+      option.service === selectedOption.service,
+  );
+
+  if (!quotedOption) {
+    throw new Error("Opção de frete inválida para este CEP.");
+  }
+
+  const finalOption = applyFreeShippingToOption(quotedOption, {
+    destinationCep,
+    state: confirmedState,
+  });
+
+  return {
+    ...finalOption,
+    destinationCep,
+    isFreeShipping:
+      Boolean(finalOption.isFreeShipping) ||
+      isBrazilState(confirmedState),
+  };
+}
+
+function normalizeCouponCode(value) {
+  const couponCode = String(value || "").trim().toUpperCase();
+
+  if (!couponCode) {
+    return "";
+  }
+
+  if (couponCode !== PIX_COUPON_CODE) {
+    throw new Error("Cupom inválido.");
+  }
+
+  return couponCode;
+}
+
+export function normalizeIronAirCheckoutPayload(payload, { orderType } = {}) {
   if (!payload || typeof payload !== "object") {
     throw new Error("Payload inválido.");
   }
@@ -145,13 +259,18 @@ export function normalizeIronAirCheckoutPayload(payload) {
   const paymentMethod = PAYMENT_METHODS.has(payload.paymentMethod)
     ? payload.paymentMethod
     : "PIX";
+  const couponCode = normalizeCouponCode(payload.couponCode);
+
+  if (couponCode && paymentMethod !== "PIX") {
+    throw new Error("O cupom PIX10 é válido somente para pagamento via Pix.");
+  }
 
   if (!items.length) {
     throw new Error("Carrinho vazio.");
   }
 
   const normalizedItems = items.map((item) => {
-    const quantity = Math.max(1, Number(item.quantity) || 1);
+    const quantity = normalizeCheckoutQuantity(item.quantity, orderType);
     const variantId = normalizeVariantGid(requireText(item, "variantId", "variantId"));
 
     return {
@@ -163,15 +282,22 @@ export function normalizeIronAirCheckoutPayload(payload) {
     };
   });
 
+  const requestedExternalReference = String(payload.externalReference || "").trim();
+  const generatedExternalReference = `ironair_${Date.now()}_${crypto.randomUUID()}`;
+  const externalReference = requestedExternalReference || generatedExternalReference;
   const normalizedPayload = {
-    externalReference:
-      String(payload.externalReference || "").trim() ||
-      `ironair_${Date.now()}_${crypto.randomUUID()}`,
+    externalReference: namespaceCheckoutExternalReference(externalReference, orderType),
     paymentMethod,
     customer: normalizedCustomer,
     shippingAddress: normalizedShippingAddress,
     billingAddress: normalizedBillingAddress,
     items: normalizedItems,
+    shippingOption:
+      orderType === PREORDER_TYPE
+        ? createPreorderShippingOption(normalizedShippingAddress.postalCode)
+        : normalizeShippingOption(payload.shippingOption),
+    couponCode,
+    orderType: orderType === PREORDER_TYPE ? PREORDER_TYPE : "standard",
   };
 
   if (paymentMethod === "CREDIT_CARD") {
@@ -200,7 +326,7 @@ export function normalizeIronAirCheckoutPayload(payload) {
 }
 
 export async function createIronAirCheckout(payload, options = {}) {
-  const normalizedPayload = normalizeIronAirCheckoutPayload(payload);
+  const normalizedPayload = normalizeIronAirCheckoutPayload(payload, options);
   const existingOrder = await findAsaasShopifyOrderByExternalReference(
     normalizedPayload.externalReference,
   );
@@ -216,6 +342,7 @@ export async function createIronAirCheckout(payload, options = {}) {
       paymentId: existingOrder.asaasPaymentId,
       pix,
       paymentMethod: normalizedPayload.paymentMethod,
+      paymentStatus: existingOrder.status === "PAID" ? "CONFIRMED" : "PENDING",
       externalReference: existingOrder.externalReference,
       draftOrderId: existingOrder.draftOrderId,
       draftOrderName: existingOrder.draftOrderName,
@@ -226,6 +353,11 @@ export async function createIronAirCheckout(payload, options = {}) {
   let draftOrder;
   let verifiedItems;
   let totalValue;
+
+  if (normalizedPayload.orderType !== PREORDER_TYPE) {
+    normalizedPayload.shippingOption =
+      await verifyCheckoutShippingOption(normalizedPayload);
+  }
 
   const draftResult = await createDraftShopifyOrderForIronAirCheckout(
     normalizedPayload,
@@ -245,6 +377,10 @@ export async function createIronAirCheckout(payload, options = {}) {
             value: totalValue,
             creditCard: normalizedPayload.creditCard,
             remoteIp: options.remoteIp,
+            descriptionPrefix:
+              normalizedPayload.orderType === PREORDER_TYPE
+                ? "Iron Air - Pré-venda"
+                : undefined,
           })
         : await createAsaasPixPaymentForCustomCheckout({
             customer: normalizedPayload.customer,
@@ -252,6 +388,10 @@ export async function createIronAirCheckout(payload, options = {}) {
             externalReference: normalizedPayload.externalReference,
             items: verifiedItems,
             value: totalValue,
+            descriptionPrefix:
+              normalizedPayload.orderType === PREORDER_TYPE
+                ? "Iron Air - Pré-venda"
+                : undefined,
           });
     const payment = asaasResult.payment;
     const mappedOrder = await attachAsaasPaymentToDraftOrder({
@@ -266,6 +406,11 @@ export async function createIronAirCheckout(payload, options = {}) {
       checkoutUrl: null,
       customer: normalizedPayload.customer,
       shippingAddress: normalizedPayload.shippingAddress,
+      shippingOption: normalizedPayload.shippingOption,
+      couponCode: draftResult.discount?.couponCode || null,
+      discountAmount: draftResult.discount?.discountAmount || 0,
+      discountType: draftResult.discount?.discountType || null,
+      orderType: normalizedPayload.orderType,
     });
 
     console.log("[ironair checkout] Payloads sent.", {

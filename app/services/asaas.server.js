@@ -1,5 +1,6 @@
 import { getAsaasConfig } from "../config/asaas.server";
 import { completeDraftOrderForAsaasPayment } from "./shopify-order.server";
+import { createCorreiosPrePostageIfEligible } from "./correios-order.server";
 
 const SUPPORTED_PAYMENT_WEBHOOK_EVENTS = new Set([
   "PAYMENT_CREATED",
@@ -77,11 +78,13 @@ function todayAsIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function buildCustomCheckoutDescription(items) {
+function buildCustomCheckoutDescription(items, prefix = "") {
+  const itemDescription = items
+    .map((item) => `${Math.max(1, Number(item.quantity) || 1)}x ${item.title}`)
+    .join(" | ");
+
   return truncateAsaasText(
-    items
-      .map((item) => `${Math.max(1, Number(item.quantity) || 1)}x ${item.title}`)
-      .join(" | ") || getAsaasDescription(),
+    [prefix, itemDescription || getAsaasDescription()].filter(Boolean).join(" | "),
     MAX_ASAAS_DESCRIPTION_LENGTH,
   );
 }
@@ -367,12 +370,13 @@ export async function createAsaasPixPaymentForCustomCheckout({
   externalReference,
   items,
   value,
+  descriptionPrefix,
 }) {
   const asaasCustomer = await createAsaasCustomerForCustomCheckout({
     customer,
     shippingAddress,
   });
-  const description = buildCustomCheckoutDescription(items);
+  const description = buildCustomCheckoutDescription(items, descriptionPrefix);
   const paymentPayload = {
     customer: asaasCustomer.id,
     billingType: "PIX",
@@ -408,6 +412,7 @@ export async function createAsaasCreditCardPaymentForCustomCheckout({
   value,
   creditCard,
   remoteIp,
+  descriptionPrefix,
 }) {
   const asaasCustomer = await createAsaasCustomerForCustomCheckout({
     customer,
@@ -418,7 +423,7 @@ export async function createAsaasCreditCardPaymentForCustomCheckout({
     billingType: "CREDIT_CARD",
     value: Number(value),
     dueDate: todayAsIsoDate(),
-    description: buildCustomCheckoutDescription(items),
+    description: buildCustomCheckoutDescription(items, descriptionPrefix),
     externalReference,
     creditCard: {
       holderName: creditCard.holderName,
@@ -598,13 +603,34 @@ export async function handleAsaasWebhook(payload) {
     });
 
     console.log("[SHOPIFY ORDER READY]");
-    await completeDraftOrderForAsaasPayment(paymentId, {
+    const completedOrder = await completeDraftOrderForAsaasPayment(paymentId, {
       asaasCheckoutId: checkoutId,
       asaasCustomerId,
       asaasCustomer,
       asaasPayment,
       externalReference: resolvedExternalReference,
     });
+
+    if (completedOrder) {
+      try {
+        const postageResult = await createCorreiosPrePostageIfEligible(
+          completedOrder,
+          { customer: asaasCustomer },
+        );
+
+        if (!postageResult.success) {
+          console.warn("[correios] Automatic pre-postage did not complete.", {
+            orderId: completedOrder.id,
+            error: postageResult.error,
+          });
+        }
+      } catch (error) {
+        console.warn("[correios] Automatic pre-postage failed unexpectedly.", {
+          orderId: completedOrder.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   return result;

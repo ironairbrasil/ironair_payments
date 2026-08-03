@@ -14,21 +14,21 @@ datasource db {
 }
 
 model Session {
-  id            String    @id
-  shop          String
-  state         String
-  isOnline      Boolean   @default(false)
-  scope         String?
-  expires       DateTime?
-  accessToken   String
-  userId        BigInt?
-  firstName     String?
-  lastName      String?
-  email         String?
-  accountOwner  Boolean   @default(false)
-  locale        String?
-  collaborator  Boolean?  @default(false)
-  emailVerified Boolean?  @default(false)
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
 
@@ -36,23 +36,44 @@ model Session {
 }
 
 model AsaasShopifyOrder {
-  id                Int      @id @default(autoincrement())
-  asaasPaymentId    String   @unique
-  asaasCheckoutId   String?  @unique
-  asaasCustomerId   String?
-  draftOrderId      String?  @unique
-  draftOrderName    String?
-  shopifyOrderId    String?  @unique
-  shopifyOrderName  String?
-  externalReference String
-  status            String   @default("PENDING")
-  invoiceUrl        String?
-  asaasCheckoutUrl  String?
-  failureReason     String?
-  value             Float
-  paidAt            DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                       Int       @id @default(autoincrement())
+  asaasPaymentId           String    @unique
+  asaasCheckoutId          String?   @unique
+  asaasCustomerId          String?
+  draftOrderId             String?   @unique
+  draftOrderName           String?
+  shopifyOrderId           String?   @unique
+  shopifyOrderName         String?
+  externalReference        String
+  status                   String    @default("PENDING")
+  invoiceUrl               String?
+  asaasCheckoutUrl         String?
+  failureReason            String?
+  value                    Float
+  couponCode               String?
+  discountAmount           Float?
+  discountType             String?
+  shippingCarrier          String?
+  shippingService          String?
+  shippingServiceCode      String?
+  shippingPrice            Float?
+  shippingDeadlineDays     Int?
+  shippingDestinationCep   String?
+  shippingStatus           String?
+  correiosPrePostageId     String?
+  correiosReceiptId        String?
+  correiosTrackingCode     String?
+  correiosStatus           String?
+  correiosLabelUrl         String?
+  correiosLabelBase64      String?
+  correiosRawResponse      Json?
+  correiosAttemptedAt      DateTime?
+  correiosPrePostedAt      DateTime?
+  correiosLabelGeneratedAt DateTime?
+  correiosError            String?
+  paidAt                   DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   @@unique([externalReference])
 }

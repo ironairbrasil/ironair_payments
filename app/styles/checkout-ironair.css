@@ -131,6 +131,120 @@ body {
   margin-top: 10px;
 }
 
+.ia-shipping {
+  padding-top: 4px;
+}
+
+.ia-shipping-banner {
+  margin: 8px 0 12px;
+  border: 1px solid #cfe7d6;
+  border-radius: 5px;
+  padding: 10px 12px;
+  background: #f4fbf6;
+}
+
+.ia-shipping-banner strong,
+.ia-shipping-banner span {
+  display: block;
+}
+
+.ia-shipping-banner strong {
+  color: #176637;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ia-shipping-banner span {
+  margin-top: 3px;
+  color: #3f5f49;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ia-shipping-state {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  color: #555;
+  font-size: 13px;
+}
+
+.ia-shipping-options {
+  display: grid;
+  gap: 10px;
+}
+
+.ia-shipping-option {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid #d6d6d6;
+  border-radius: 5px;
+  padding: 12px 14px;
+  background: #fff;
+  color: #151515;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ia-shipping-option.is-selected {
+  border-color: #111;
+  box-shadow: inset 0 0 0 1px #111;
+}
+
+.ia-shipping-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #111;
+  pointer-events: none;
+}
+
+.ia-shipping-copy,
+.ia-shipping-option strong,
+.ia-shipping-option small,
+.ia-shipping-option b {
+  display: block;
+}
+
+.ia-shipping-option strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ia-shipping-option small {
+  margin-top: 4px;
+  color: #666;
+  font-size: 12px;
+}
+
+.ia-shipping-option b {
+  font-size: 15px;
+}
+
+.ia-free-shipping-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: #176637;
+}
+
+.ia-free-shipping-price s,
+.ia-summary-free-shipping s {
+  color: #777;
+  font-weight: 500;
+}
+
+.ia-free-shipping-price span,
+.ia-summary-free-shipping span {
+  color: #176637;
+  font-weight: 800;
+}
+
 .ia-field {
   position: relative;
   display: block;
@@ -344,6 +458,86 @@ body {
   max-width: 460px;
 }
 
+.ia-preorder-notice {
+  margin-bottom: 24px;
+  padding: 18px;
+  border: 1px solid #d6b85c;
+  border-radius: 12px;
+  background: #fff9e8;
+  color: #342d18;
+}
+
+.ia-preorder-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border: 1px solid #d6b85c;
+  border-radius: 8px;
+  background: #fff9e8;
+  color: #342d18;
+}
+
+.ia-preorder-topbar strong,
+.ia-preorder-topbar span {
+  display: block;
+}
+
+.ia-preorder-topbar strong {
+  font-size: 16px;
+}
+
+.ia-preorder-topbar span {
+  font-size: 13px;
+}
+
+.ia-preorder-shipping-option {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 14px;
+  border: 2px solid #176637;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ia-preorder-shipping-option strong,
+.ia-preorder-shipping-option small {
+  display: block;
+}
+
+.ia-preorder-shipping-option small {
+  margin-top: 5px;
+  color: #5c5c5c;
+  line-height: 1.4;
+}
+
+.ia-preorder-shipping-option b {
+  color: #176637;
+}
+
+.ia-preorder-radio {
+  width: 18px;
+  height: 18px;
+  border: 5px solid #176637;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #176637;
+}
+
+.ia-preorder-notice strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.ia-preorder-notice p {
+  margin: 5px 0;
+  line-height: 1.45;
+}
+
 .ia-products {
   padding-bottom: 20px;
 }
@@ -414,6 +608,18 @@ body {
   font-size: 13px;
 }
 
+.ia-coupon {
+  padding: 0 0 18px;
+}
+
+.ia-coupon .ia-field {
+  height: 48px;
+}
+
+.ia-coupon .ia-field input {
+  text-transform: uppercase;
+}
+
 .ia-lines {
   padding: 18px 0;
   border-top: 1px solid #d6d6d6;
@@ -439,6 +645,17 @@ body {
 
 .ia-lines .muted {
   color: #777;
+}
+
+.ia-summary-free-shipping {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ia-lines .ia-discount-line span,
+.ia-lines .ia-discount-line strong {
+  color: #176637;
 }
 
 .ia-total {
@@ -613,6 +830,16 @@ body {
   margin-top: 5px;
   color: #666;
   font-size: 13px;
+}
+
+@media (min-width: 1440px) {
+  .ia-form,
+  .ia-preorder-topbar {
+    width: 100%;
+    max-width: 690px;
+    margin-left: auto;
+    margin-right: clamp(90px, 9vw, 190px);
+  }
 }
 
 @media (max-width: 900px) {
