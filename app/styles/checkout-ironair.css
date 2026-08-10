@@ -41,6 +41,10 @@ body {
   padding-top: 13px;
 }
 
+.ia-logo-link {
+  display: block;
+}
+
 .ia-logo {
   width: 205px;
   height: auto;

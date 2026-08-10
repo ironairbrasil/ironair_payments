@@ -924,11 +924,17 @@ export default function IronAirCheckout() {
     <main className="ia-checkout">
       <section className="ia-left">
         <header className="ia-header">
-          <img
-            className="ia-logo"
-            src="/Iron-Air-Logo.webp"
-            alt="Iron Air Brasil"
-          />
+          <a
+            className="ia-logo-link"
+            href={STORE_ORIGIN}
+            aria-label="Voltar para a loja Iron Air Brasil"
+          >
+            <img
+              className="ia-logo"
+              src="/Iron-Air-Logo.webp"
+              alt="Iron Air Brasil"
+            />
+          </a>
           <div className="ia-safe">
             <Lock size={15} />
             Checkout seguro
