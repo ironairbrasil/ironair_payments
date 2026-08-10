@@ -1,22 +1,10 @@
-import IronAirCheckout, {
-  links,
-  loader as checkoutLoader,
-} from "./checkout-ironair";
+import { redirect } from "react-router";
 
-export { links };
-
-export async function loader(args) {
-  const data = await checkoutLoader(args);
-
-  return {
-    ...data,
-    checkoutMode: "preorder",
-    externalReference:
-      data.externalReference ||
-      `preorder_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-  };
+export async function loader({ request }) {
+  const url = new URL(request.url);
+  return redirect(`/checkout-ironair${url.search}`);
 }
 
-export default function PreorderCheckout() {
-  return <IronAirCheckout />;
+export default function LegacyPreorderCheckout() {
+  return null;
 }
