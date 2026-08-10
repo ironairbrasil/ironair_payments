@@ -56,6 +56,7 @@ const DEFAULT_ITEM = {
 
 const STORE_ORIGIN = "https://ironair.com.br";
 const PIX_COUPON_CODE = "PIX10";
+const MAX_CARD_INSTALLMENTS = 12;
 export const PREORDER_SHIPPING_ESTIMATE =
   "Envio previsto em até 30 dias, após a chegada e liberação do produto no Brasil.";
 
@@ -497,6 +498,17 @@ export default function IronAirCheckout() {
         : "";
   const discountAmount = couponIsPix10 && paymentMethod === "PIX" ? subtotal * 0.1 : 0;
   const checkoutTotal = subtotal - discountAmount + shippingTotal;
+  const installmentOptions = useMemo(
+    () =>
+      Array.from({ length: MAX_CARD_INSTALLMENTS }, (_, index) => {
+        const count = index + 1;
+        return {
+          count,
+          value: checkoutTotal / count,
+        };
+      }),
+    [checkoutTotal],
+  );
 
   function updateField(name, value) {
     let nextValue = value;
@@ -1379,7 +1391,11 @@ export default function IronAirCheckout() {
                         value={card.installments}
                         onChange={(event) => updateCardField("installments", event.target.value)}
                       >
-                        <option value="1">1x de {formatMoney(subtotal)}</option>
+                        {installmentOptions.map(({ count, value }) => (
+                          <option key={count} value={String(count)}>
+                            {count}x de {formatMoney(value)} sem juros
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown size={18} />
                     </label>

@@ -311,6 +311,10 @@ export function normalizeIronAirCheckoutPayload(payload, { orderType } = {}) {
       expiryMonth: expiryMonth.padStart(2, "0"),
       expiryYear: expiryYear.length === 2 ? `20${expiryYear}` : expiryYear,
       ccv: onlyDigits(requireText(creditCard, "ccv", "CVV")),
+      installments: Math.min(
+        12,
+        Math.max(1, Math.trunc(Number(creditCard.installments) || 1)),
+      ),
     };
 
     if (normalizedPayload.creditCard.number.length < 13) {

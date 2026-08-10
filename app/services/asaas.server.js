@@ -421,7 +421,12 @@ export async function createAsaasCreditCardPaymentForCustomCheckout({
   const paymentPayload = {
     customer: asaasCustomer.id,
     billingType: "CREDIT_CARD",
-    value: Number(value),
+    ...(creditCard.installments > 1
+      ? {
+          installmentCount: creditCard.installments,
+          totalValue: Number(value),
+        }
+      : { value: Number(value) }),
     dueDate: todayAsIsoDate(),
     description: buildCustomCheckoutDescription(items, descriptionPrefix),
     externalReference,
