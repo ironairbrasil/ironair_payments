@@ -3,9 +3,15 @@ import crypto from "node:crypto";
 import {
   createAsaasCreditCardPaymentForCustomCheckout,
   createAsaasPixPaymentForCustomCheckout,
+  getAsaasCustomer,
   getAsaasPixQrCode,
+  isAsaasPaymentApproved,
 } from "./asaas.server";
-import { attachAsaasPaymentToDraftOrder } from "./shopify-order.server";
+import {
+  attachAsaasPaymentToDraftOrder,
+  completeDraftOrderForAsaasPayment,
+} from "./shopify-order.server";
+import { createCorreiosPrePostageIfEligible } from "./correios-order.server";
 import {
   createDraftShopifyOrderForIronAirCheckout,
   deleteDraftShopifyOrder,
@@ -416,6 +422,26 @@ export async function createIronAirCheckout(payload, options = {}) {
       discountType: draftResult.discount?.discountType || null,
       orderType: normalizedPayload.orderType,
     });
+
+    // Credit-card payments can be approved before the asynchronous webhook
+    // reaches us. Finish the order here as well so the Correios pre-postage is
+    // not dependent on the timing of that webhook.
+    if (isAsaasPaymentApproved(payment)) {
+      const asaasCustomer = await getAsaasCustomer(payment.customer);
+      const completedOrder = await completeDraftOrderForAsaasPayment(payment.id, {
+        asaasCustomerId: payment.customer,
+        asaasCustomer,
+        asaasPayment: payment,
+        externalReference:
+          payment.externalReference || normalizedPayload.externalReference,
+      });
+
+      if (completedOrder) {
+        await createCorreiosPrePostageIfEligible(completedOrder, {
+          customer: asaasCustomer,
+        });
+      }
+    }
 
     console.log("[ironair checkout] Payloads sent.", {
       shopify: "See [SHOPIFY CUSTOM CHECKOUT DRAFT PAYLOAD]",

@@ -1135,7 +1135,25 @@ export async function attachAsaasPaymentToDraftOrder({
   });
 
   if (existingOrder) {
-    return existingOrder;
+    // A card payment can be confirmed while the checkout request is still
+    // finishing. Keep the existing mapping, but fill the shipping data that
+    // makes a paid order eligible for the Correios pre-postage flow.
+    if (!shippingOption) {
+      return existingOrder;
+    }
+
+    return prisma.asaasShopifyOrder.update({
+      where: { id: existingOrder.id },
+      data: {
+        shippingCarrier: shippingOption.carrier || null,
+        shippingService: shippingOption.service || null,
+        shippingServiceCode: shippingOption.serviceCode || null,
+        shippingPrice:
+          shippingOption.price !== undefined ? Number(shippingOption.price) : null,
+        shippingDeadlineDays: shippingOption.deadlineDays ?? null,
+        shippingDestinationCep: shippingOption.destinationCep || null,
+      },
+    });
   }
 
   const data = await shopifyGraphql(
