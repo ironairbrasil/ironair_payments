@@ -146,6 +146,21 @@ export type CorreiosPrePostageResult = {
   labelBase64: string | null;
 };
 
+type CorreiosTrackingEvent = {
+  date: string | null;
+  description: string;
+  detail: string | null;
+  location: string | null;
+};
+
+export type CorreiosTrackingResult = {
+  success: true;
+  code: string;
+  status: string | null;
+  events: CorreiosTrackingEvent[];
+  raw: unknown;
+};
+
 const tokenCaches: Record<CorreiosTokenScope, CorreiosTokenCache | null> = {
   quote: null,
   postage: null,
@@ -254,6 +269,16 @@ function normalizeCep(value: unknown) {
   }
 
   return cep;
+}
+
+function normalizeTrackingCode(value: unknown) {
+  const code = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  if (!/^[A-Z]{2}\d{9}BR$/.test(code)) {
+    throw new Error("Informe um código de rastreio válido dos Correios.");
+  }
+
+  return code;
 }
 
 function normalizeUf(value: unknown) {
@@ -1030,6 +1055,72 @@ export async function quoteCorreiosShipping(payload: {
     success: true,
     options,
     destinationAddress,
+  };
+}
+
+function asTrackingText(value: unknown) {
+  return String(value || "").trim() || null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getTrackingLocation(event: Record<string, unknown>) {
+  const unit = asRecord(event.unidade || event.unidadeDestino || event.local);
+  const address = asRecord(unit.endereco || unit.address);
+  const city = asTrackingText(address.cidade || address.city || unit.cidade);
+  const state = asTrackingText(address.uf || address.state || unit.uf);
+
+  return [city, state].filter(Boolean).join(" · ") || null;
+}
+
+function normalizeTrackingEvents(data: unknown): CorreiosTrackingEvent[] {
+  const payload = asRecord(data);
+  const objects = Array.isArray(payload.objetos) ? payload.objetos : [];
+  const object = asRecord(objects[0] || payload.objeto || payload);
+  const events = Array.isArray(object.eventos) ? object.eventos : [];
+
+  return events.map((item) => {
+    const event = asRecord(item);
+
+    return {
+      date: asTrackingText(
+        event.dtHrCriado || event.dataHora || event.data || event.dataEvento,
+      ),
+      description:
+        asTrackingText(event.descricao || event.status || event.nome) ||
+        "Atualização de rastreio",
+      detail: asTrackingText(event.detalhe || event.descricaoDetalhada),
+      location: getTrackingLocation(event),
+    };
+  });
+}
+
+export async function trackCorreiosObject(
+  trackingCode: unknown,
+): Promise<CorreiosTrackingResult> {
+  const code = normalizeTrackingCode(trackingCode);
+  const config = getPostageCorreiosConfig();
+  const data = await requestCorreios(
+    "postage",
+    config,
+    `/srorastro/v1/objetos/${encodeURIComponent(code)}?resultado=T&lingua=pt-BR`,
+    {
+      method: "GET",
+      headers: { "Accept-Language": "pt-BR" },
+    },
+  );
+  const events = normalizeTrackingEvents(data);
+
+  return {
+    success: true,
+    code,
+    status: events[0]?.description || null,
+    events,
+    raw: data,
   };
 }
 
