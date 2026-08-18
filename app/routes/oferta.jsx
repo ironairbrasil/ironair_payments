@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import process from "node:process";
-import { ArrowRight, Clock3, Footprints, HandPointer, PackageCheck, ShieldCheck, Shirt, Sparkles, Wind } from "lucide-react";
+import { ArrowRight, Clock3, Footprints, MousePointerClick, PackageCheck, ShieldCheck, Shirt, Sparkles, Wind } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLoaderData, useLocation } from "react-router";
 
@@ -89,7 +89,7 @@ export default function OfferLanding({ data }) {
 
       <section className="launch-features" aria-label="Destaques do Iron Air">
         <article><Wind /><div><strong>TECNOLOGIA DE<br/>FLUXO DE AR</strong><p>Secagem uniforme<br/>sem amassar</p></div></article>
-        <article><HandPointer /><div><strong>PAINEL TOUCH<br/>INTUITIVO</strong><p>Controle fácil de<br/>tempo e temperatura</p></div></article>
+        <article><MousePointerClick /><div><strong>PAINEL TOUCH<br/>INTUITIVO</strong><p>Controle fácil de<br/>tempo e temperatura</p></div></article>
         <article><Shirt /><div><strong>CAMISAS E CAMISETAS</strong><p>Do P ao XXG com<br/>ajuste perfeito</p></div></article>
         <article><PackageCheck /><div><strong>CALÇAS PRONTAS<br/>EM MINUTOS</strong><p>Sem esforço,<br/>sem ferro</p></div></article>
         <article><Footprints /><div><strong>SAPATOS SEM<br/>MAU CHEIRO</strong><p>Ar quente remove<br/>a umidade</p></div></article>
