@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import process from "node:process";
-import { ArrowRight, Clock3, PackageCheck, ShieldCheck, Sparkles, Wind } from "lucide-react";
+import { ArrowRight, Clock3, Footprints, HandPointer, PackageCheck, ShieldCheck, Shirt, Sparkles, Wind } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLoaderData, useLocation } from "react-router";
 
@@ -73,15 +73,26 @@ export default function OfferLanding({ data }) {
 
   return (
     <main className="offer-page">
-      <section className="offer-reference-hero" aria-label="Lançamento Iron Air">
-        <img
-          src="/iron-air-hero-lancamento.png"
-          alt="Iron Air: o jeito inteligente de cuidar das suas roupas, sem ferro e sem esforço"
-          width="1536"
-          height="1024"
-          loading="eager"
-          fetchPriority="high"
-        />
+      <section className="launch-hero" aria-labelledby="launch-title">
+        <div className="launch-copy">
+          <span>LANÇAMENTO</span>
+          <h1 id="launch-title">Iron Air</h1>
+          <p>O jeito inteligente de cuidar das suas roupas.</p>
+          <strong>Sem ferro. Sem esforço. Mais tempo para você.</strong>
+        </div>
+        <div className="launch-products" aria-hidden="true">
+          <svg viewBox="0 245 1536 625" preserveAspectRatio="xMidYMid meet" role="presentation">
+            <image href="/iron-air-hero-lancamento.png" width="1536" height="1024" />
+          </svg>
+        </div>
+      </section>
+
+      <section className="launch-features" aria-label="Destaques do Iron Air">
+        <article><Wind /><div><strong>TECNOLOGIA DE<br/>FLUXO DE AR</strong><p>Secagem uniforme<br/>sem amassar</p></div></article>
+        <article><HandPointer /><div><strong>PAINEL TOUCH<br/>INTUITIVO</strong><p>Controle fácil de<br/>tempo e temperatura</p></div></article>
+        <article><Shirt /><div><strong>CAMISAS E CAMISETAS</strong><p>Do P ao XXG com<br/>ajuste perfeito</p></div></article>
+        <article><PackageCheck /><div><strong>CALÇAS PRONTAS<br/>EM MINUTOS</strong><p>Sem esforço,<br/>sem ferro</p></div></article>
+        <article><Footprints /><div><strong>SAPATOS SEM<br/>MAU CHEIRO</strong><p>Ar quente remove<br/>a umidade</p></div></article>
       </section>
 
       <section className="offer-section problem"><p className="eyebrow">O PROBLEMA NÃO É A ROUPA</p><h2>É o tempo que você perde para deixá-la pronta.</h2><div className="problem-grid">{["Você já está atrasado e percebe a camisa amarrotada.","Ferro e tábua ocupam espaço e exigem atenção o tempo inteiro.","Várias peças transformam uma tarefa simples em mais uma obrigação."].map((text,i)=><article key={text}><b>0{i+1}</b><p>{text}</p></article>)}</div></section>
