@@ -1,4 +1,46 @@
+import { useEffect } from "react";
+import { useLoaderData } from "react-router";
+
+import db from "../db.server";
+
+export async function loader({ request }) {
+  const url = new URL(request.url);
+  const paymentId = url.searchParams.get("paymentId");
+  const externalReference = url.searchParams.get("externalReference");
+  if (!paymentId && !externalReference) return { purchase: null };
+
+  const order = await db.asaasShopifyOrder.findFirst({
+    where: {
+      OR: [
+        paymentId ? { asaasPaymentId: paymentId } : undefined,
+        externalReference ? { externalReference } : undefined,
+      ].filter(Boolean),
+      status: "PAID",
+    },
+    select: { asaasPaymentId: true, externalReference: true, value: true, shopifyOrderId: true },
+  });
+
+  return order ? {
+    purchase: {
+      transactionId: order.shopifyOrderId || order.asaasPaymentId || order.externalReference,
+      value: Number(order.value),
+      currency: "BRL",
+    },
+  } : { purchase: null };
+}
+
 export default function CheckoutSuccess() {
+  const { purchase } = useLoaderData();
+
+  useEffect(() => {
+    if (!purchase) return;
+    const storageKey = `ironair:purchase:${purchase.transactionId}`;
+    if (window.localStorage.getItem(storageKey)) return;
+    window.fbq?.("track", "Purchase", { value: purchase.value, currency: purchase.currency }, { eventID: purchase.transactionId });
+    window.gtag?.("event", "purchase", { transaction_id: purchase.transactionId, value: purchase.value, currency: purchase.currency });
+    window.localStorage.setItem(storageKey, "1");
+  }, [purchase]);
+
   return (
     <main
       style={{

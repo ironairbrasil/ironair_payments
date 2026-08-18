@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import process from "node:process";
 import { ArrowRight, Clock3, PackageCheck, ShieldCheck, Sparkles, Wind } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLoaderData, useLocation } from "react-router";
 
 import { getIronAirPublicProduct } from "../services/ironair-product.server";
@@ -39,6 +39,11 @@ export default function OfferLanding({ data }) {
   const firstAvailable = product.variants.find((variant) => variant.available) || product.variants[0];
   const [variantId, setVariantId] = useState(firstAvailable?.id || "");
   const selected = product.variants.find((variant) => variant.id === variantId) || firstAvailable;
+  useEffect(() => {
+    if (!selected) return;
+    window.fbq?.("track", "ViewContent", { content_ids: [selected.numericId], content_type: "product", value: selected.price, currency: "BRL" });
+    window.gtag?.("event", "view_item", { currency: "BRL", value: selected.price, items: [{ item_id: selected.numericId, item_name: product.title, item_variant: selected.title }] });
+  }, [product.title, selected]);
   const checkoutUrl = useMemo(() => {
     const params = new URLSearchParams(location.search);
     params.set("variantId", selected?.id || "");
