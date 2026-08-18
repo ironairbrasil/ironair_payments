@@ -73,10 +73,15 @@ export default function OfferLanding({ data }) {
 
   return (
     <main className="offer-page">
-      <header className="offer-header"><img src="/Iron-Air-Logo.webp" alt="Iron Air Brasil" /><span><ShieldCheck size={16} /> Compra segura</span></header>
-      <section className="offer-hero">
-        <div className="offer-copy"><p className="eyebrow">APRESENTAÇÃO COMEÇA ANTES DA PRIMEIRA PALAVRA</p><h1>Suas roupas falam antes de você.</h1><p className="lead">Uma camisa amarrotada pode transmitir uma imagem diferente da que você quer passar. O Iron Air ajuda a deixar suas roupas apresentáveis enquanto você cuida do resto da rotina.</p><div className="momentos"><span>Reunião</span><span>Entrevista</span><span>Viagem</span><span>Evento</span></div><BuyButton /></div>
-        <div className="hero-product"><img src={product.featuredImage} alt={product.title} loading="eager" /><div className="hero-stamp">Mãos livres<br/><strong>enquanto trabalha</strong></div></div>
+      <section className="offer-reference-hero" aria-label="Lançamento Iron Air">
+        <img
+          src="/iron-air-hero-lancamento.png"
+          alt="Iron Air: o jeito inteligente de cuidar das suas roupas, sem ferro e sem esforço"
+          width="1536"
+          height="1024"
+          loading="eager"
+          fetchPriority="high"
+        />
       </section>
 
       <section className="offer-section problem"><p className="eyebrow">O PROBLEMA NÃO É A ROUPA</p><h2>É o tempo que você perde para deixá-la pronta.</h2><div className="problem-grid">{["Você já está atrasado e percebe a camisa amarrotada.","Ferro e tábua ocupam espaço e exigem atenção o tempo inteiro.","Várias peças transformam uma tarefa simples em mais uma obrigação."].map((text,i)=><article key={text}><b>0{i+1}</b><p>{text}</p></article>)}</div></section>
