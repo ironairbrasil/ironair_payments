@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import prisma from "../db.server";
 
 import {
   createAsaasCreditCardPaymentForCustomCheckout,
@@ -35,6 +36,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UF_PATTERN = /^[A-Z]{2}$/;
 const PAYMENT_METHODS = new Set(["PIX", "CREDIT_CARD"]);
 const PIX_COUPON_CODE = "PIX10";
+const ATTRIBUTION_KEYS = [
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid",
+];
 
 function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
@@ -304,6 +308,10 @@ export function normalizeIronAirCheckoutPayload(payload, { orderType } = {}) {
         : normalizeShippingOption(payload.shippingOption),
     couponCode,
     orderType: orderType === PREORDER_TYPE ? PREORDER_TYPE : "standard",
+    attribution: Object.fromEntries(
+      ATTRIBUTION_KEYS.map((key) => [key, String(payload.attribution?.[key] || "").slice(0, 500)])
+        .filter(([, value]) => value),
+    ),
   };
 
   if (paymentMethod === "CREDIT_CARD") {
@@ -360,23 +368,53 @@ export async function createIronAirCheckout(payload, options = {}) {
     };
   }
 
+  try {
+    await prisma.checkoutAttempt.create({
+      data: { externalReference: normalizedPayload.externalReference },
+    });
+  } catch (error) {
+    if (error?.code !== "P2002") throw error;
+
+    const orderCreatedByConcurrentRequest =
+      await findAsaasShopifyOrderByExternalReference(normalizedPayload.externalReference);
+
+    if (orderCreatedByConcurrentRequest?.asaasPaymentId) {
+      const pix = normalizedPayload.paymentMethod === "PIX"
+        ? await getAsaasPixQrCode(orderCreatedByConcurrentRequest.asaasPaymentId)
+        : null;
+      return {
+        checkoutUrl: null,
+        paymentId: orderCreatedByConcurrentRequest.asaasPaymentId,
+        pix,
+        paymentMethod: normalizedPayload.paymentMethod,
+        paymentStatus: orderCreatedByConcurrentRequest.status === "PAID" ? "CONFIRMED" : "PENDING",
+        externalReference: orderCreatedByConcurrentRequest.externalReference,
+        draftOrderId: orderCreatedByConcurrentRequest.draftOrderId,
+        draftOrderName: orderCreatedByConcurrentRequest.draftOrderName,
+        reused: true,
+      };
+    }
+
+    throw new Error("Este checkout já está sendo processado. Aguarde alguns segundos e tente novamente.");
+  }
+
   let draftOrder;
   let verifiedItems;
   let totalValue;
 
-  if (normalizedPayload.orderType !== PREORDER_TYPE) {
-    normalizedPayload.shippingOption =
-      await verifyCheckoutShippingOption(normalizedPayload);
-  }
-
-  const draftResult = await createDraftShopifyOrderForIronAirCheckout(
-    normalizedPayload,
-  );
-  draftOrder = draftResult.draftOrder;
-  verifiedItems = draftResult.items;
-  totalValue = draftResult.value;
-
   try {
+    if (normalizedPayload.orderType !== PREORDER_TYPE) {
+      normalizedPayload.shippingOption =
+        await verifyCheckoutShippingOption(normalizedPayload);
+    }
+
+    const draftResult = await createDraftShopifyOrderForIronAirCheckout(
+      normalizedPayload,
+    );
+    draftOrder = draftResult.draftOrder;
+    verifiedItems = draftResult.items;
+    totalValue = draftResult.value;
+
     const asaasResult =
       normalizedPayload.paymentMethod === "CREDIT_CARD"
         ? await createAsaasCreditCardPaymentForCustomCheckout({
@@ -421,6 +459,11 @@ export async function createIronAirCheckout(payload, options = {}) {
       discountAmount: draftResult.discount?.discountAmount || 0,
       discountType: draftResult.discount?.discountType || null,
       orderType: normalizedPayload.orderType,
+      attribution: normalizedPayload.attribution,
+    });
+    await prisma.checkoutAttempt.update({
+      where: { externalReference: normalizedPayload.externalReference },
+      data: { status: "COMPLETED", failureReason: null },
     });
 
     // Credit-card payments can be approved before the asynchronous webhook
@@ -468,15 +511,22 @@ export async function createIronAirCheckout(payload, options = {}) {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
 
-    try {
-      await deleteDraftShopifyOrder(draftOrder.id);
-    } finally {
-      await markDraftOrderAsFailed({
-        draftOrder,
-        externalReference: normalizedPayload.externalReference,
-        value: totalValue || 0,
-        reason,
-      });
+    await prisma.checkoutAttempt.update({
+      where: { externalReference: normalizedPayload.externalReference },
+      data: { status: "FAILED", failureReason: reason },
+    }).catch(() => null);
+
+    if (draftOrder?.id) {
+      try {
+        await deleteDraftShopifyOrder(draftOrder.id);
+      } finally {
+        await markDraftOrderAsFailed({
+          draftOrder,
+          externalReference: normalizedPayload.externalReference,
+          value: totalValue || 0,
+          reason,
+        });
+      }
     }
 
     throw error;

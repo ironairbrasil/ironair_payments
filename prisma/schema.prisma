@@ -49,6 +49,7 @@ model AsaasShopifyOrder {
   invoiceUrl               String?
   asaasCheckoutUrl         String?
   failureReason            String?
+  attribution              Json?
   value                    Float
   couponCode               String?
   discountAmount           Float?
@@ -76,4 +77,12 @@ model AsaasShopifyOrder {
   updatedAt                DateTime  @updatedAt
 
   @@unique([externalReference])
+}
+
+model CheckoutAttempt {
+  externalReference String   @id
+  status            String   @default("PROCESSING")
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

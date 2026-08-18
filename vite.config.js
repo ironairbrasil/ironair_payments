@@ -37,7 +37,7 @@ if (host === "localhost") {
 
 export default defineConfig({
   server: {
-    allowedHosts: [host],
+    allowedHosts: [host, "pay.ironair.com.br", "oferta.ironair.com.br"],
     cors: {
       preflightContinue: true,
     },

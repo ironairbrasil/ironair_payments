@@ -2,6 +2,7 @@ import prisma from "../db.server";
 import { getAsaasConfig } from "../config/asaas.server";
 import { unauthenticated } from "../shopify.server";
 import { FREE_SHIPPING_TITLE } from "./free-shipping.server";
+import { assertShopifyInventoryAvailable } from "./shopify-inventory";
 
 const TEST_PRODUCT_TITLE = "Iron Air Sandbox";
 const TEST_VARIANT_TITLE = "127V";
@@ -203,6 +204,7 @@ function buildCustomAttributes({
   shippingOption,
   discount,
   orderType,
+  attribution,
 }) {
   return [
     customer?.cpfCnpj ? { key: "CPF/CNPJ", value: customer.cpfCnpj } : null,
@@ -211,6 +213,7 @@ function buildCustomAttributes({
     externalReference ? { key: "externalReference", value: externalReference } : null,
     source ? { key: "source", value: source } : null,
     orderType === PREORDER_TYPE ? { key: "orderType", value: PREORDER_TYPE } : null,
+    ...Object.entries(attribution || {}).map(([key, value]) => ({ key, value: String(value) })),
     discount?.couponCode ? { key: "Cupom", value: discount.couponCode } : null,
     discount?.discountAmount
       ? { key: "Desconto valor", value: Number(discount.discountAmount).toFixed(2) }
@@ -805,6 +808,12 @@ export async function getVerifiedShopifyCheckoutItems(items) {
             price
             compareAtPrice
             sku
+            inventoryQuantity
+            inventoryPolicy
+            inventoryItem {
+              id
+              tracked
+            }
             product {
               id
               title
@@ -837,6 +846,9 @@ export async function getVerifiedShopifyCheckoutItems(items) {
       throw new Error(`Invalid Shopify variant price: ${node.id}.`);
     }
 
+    const { inventoryQuantity, inventoryTracked, inventoryPolicy } =
+      assertShopifyInventoryAvailable(node, quantity);
+
     return {
       variantId: node.id,
       quantity,
@@ -850,6 +862,10 @@ export async function getVerifiedShopifyCheckoutItems(items) {
       image: node.image?.url || node.product?.featuredImage?.url || requestedItem.image || "",
       sku: node.sku || requestedItem.sku || "",
       productId: node.product?.id || requestedItem.productId || "",
+      inventoryItemId: node.inventoryItem?.id || "",
+      inventoryQuantity: Number.isFinite(inventoryQuantity) ? inventoryQuantity : null,
+      inventoryPolicy,
+      inventoryTracked,
     };
   });
 }
@@ -881,6 +897,7 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
     shippingOption: payload.shippingOption,
     discount,
     orderType: payload.orderType,
+    attribution: payload.attribution,
   });
   const input = {
     email: payload.customer.email,
@@ -1115,6 +1132,7 @@ export async function attachAsaasPaymentToDraftOrder({
   discountAmount,
   discountType,
   orderType,
+  attribution,
 }) {
   const discount =
     couponCode && Number(discountAmount) > 0
@@ -1188,6 +1206,7 @@ export async function attachAsaasPaymentToDraftOrder({
           shippingOption,
           discount,
           orderType,
+          attribution,
         }),
         metafields: buildAsaasMetafields({
           asaasPaymentId,
@@ -1235,6 +1254,7 @@ export async function attachAsaasPaymentToDraftOrder({
           shippingOption?.price !== undefined ? Number(shippingOption.price) : null,
         shippingDeadlineDays: shippingOption?.deadlineDays ?? null,
         shippingDestinationCep: shippingOption?.destinationCep || null,
+        attribution: attribution || undefined,
       },
     });
   } catch (error) {
@@ -1352,6 +1372,7 @@ export async function completeDraftOrderForAsaasPayment(
           paidAt: mappedOrder.paidAt || new Date().toISOString(),
           paymentStatus: getPaymentLabel(asaasPayment),
           shippingOption,
+          attribution: mappedOrder.attribution,
         }),
         metafields: buildAsaasMetafields({
           asaasPaymentId: asaasPaymentId || mappedOrder.asaasPaymentId,
@@ -1435,6 +1456,7 @@ export async function completeDraftOrderForAsaasPayment(
             paymentStatus: getPaymentLabel(asaasPayment),
             shippingOption,
             discount,
+            attribution: mappedOrder.attribution,
           }),
         ],
         metafields: buildAsaasMetafields({
@@ -1549,6 +1571,7 @@ export async function completeDraftOrderForAsaasPayment(
       paymentStatus: getPaymentLabel(asaasPayment),
       shippingOption,
       discount,
+      attribution: mappedOrder.attribution,
     }),
     metafields: buildAsaasMetafields({
       asaasPaymentId: paymentId,

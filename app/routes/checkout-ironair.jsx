@@ -14,6 +14,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLoaderData } from "react-router";
 
 import checkoutStyles from "../styles/checkout-ironair.css?url";
+import {
+  getIronAirPublicProduct,
+  publicProductToCheckoutItem,
+} from "../services/ironair-product.server";
 
 const BRAZIL_STATES = [
   "AC",
@@ -302,7 +306,19 @@ export async function loader({ request }) {
   const parsedItems = parseItems(url.searchParams);
   const validItems = parsedItems.filter(itemIsPayable);
   const shouldUseDefault = !source && !validItems.length;
-  const items = shouldUseDefault ? [DEFAULT_ITEM] : parsedItems;
+  let items = parsedItems;
+
+  if (shouldUseDefault) {
+    try {
+      const product = await getIronAirPublicProduct();
+      const availableVariant = product.variants.find((variant) => variant.available);
+      items = availableVariant
+        ? [publicProductToCheckoutItem(product, availableVariant)]
+        : parsedItems;
+    } catch {
+      items = parsedItems;
+    }
+  }
   const itemLoadError =
     source === "cart" &&
     (!validItems.length || validItems.length !== parsedItems.length)
@@ -313,10 +329,17 @@ export async function loader({ request }) {
     items,
     prefill: parsePrefill(url.searchParams),
     itemLoadError,
-    externalReference: url.searchParams.get("externalReference") || "",
+    externalReference:
+      url.searchParams.get("externalReference") ||
+      `ironair_web_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     couponCode:
       queryValue(url.searchParams, ["coupon", "couponCode", "discount", "discountCode"]) ||
       "",
+    attribution: Object.fromEntries(
+      ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid"]
+        .map((key) => [key, url.searchParams.get(key) || ""])
+        .filter(([, value]) => value),
+    ),
   };
 }
 
@@ -433,6 +456,7 @@ export default function IronAirCheckout() {
     externalReference,
     couponCode: initialCouponCode,
     checkoutMode,
+    attribution,
   } = useLoaderData();
   const preorder = checkoutMode === "preorder";
   const [form, setForm] = useState({
@@ -694,6 +718,7 @@ export default function IronAirCheckout() {
         },
         paymentMethod,
         couponCode: normalizedCouponCode,
+        attribution,
         items: items.filter(itemIsPayable),
         ...(preorder ? {} : { shippingOption: selectedShippingOption }),
       };
