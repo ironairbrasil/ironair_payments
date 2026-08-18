@@ -1,7 +1,34 @@
 /* eslint-disable react/prop-types */
 import process from "node:process";
-import { ArrowRight, Clock3, Footprints, MousePointerClick, PackageCheck, ShieldCheck, Shirt, Sparkles, Wind } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  BicepsFlexed,
+  BriefcaseBusiness,
+  CalendarCheck,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleDot,
+  CircleX,
+  Clock3,
+  Coffee,
+  Flame,
+  Footprints,
+  Handshake,
+  MousePointerClick,
+  PackageCheck,
+  Power,
+  ShieldCheck,
+  Shirt,
+  Sparkles,
+  Table2,
+  TriangleAlert,
+  UserRound,
+  Wind,
+  Leaf,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLoaderData, useLocation } from "react-router";
 
 import { getIronAirPublicProduct } from "../services/ironair-product.server";
@@ -14,7 +41,11 @@ export function links() {
 export function meta() {
   return [
     { title: "Iron Air | Suas roupas falam antes de você" },
-    { name: "description", content: "Conheça o Iron Air e cuide das suas roupas com mais praticidade no dia a dia." },
+    {
+      name: "description",
+      content:
+        "Conheça o Iron Air e cuide das suas roupas com mais praticidade no dia a dia.",
+    },
     { property: "og:title", content: "Suas roupas falam antes de você." },
     { property: "og:type", content: "product" },
   ];
@@ -29,21 +60,383 @@ export async function loader() {
 }
 
 function money(value) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value || 0);
+}
+
+const HERO_PRODUCTS = [
+  {
+    key: "shirt",
+    src: "/images/hero/iron-air-shirt.png",
+    label: "Iron Air com camisa",
+  },
+  {
+    key: "pants",
+    src: "/images/hero/iron-air-pants.png",
+    label: "Iron Air com calça",
+  },
+  {
+    key: "shoes",
+    src: "/images/hero/iron-air-shoes.png",
+    label: "Iron Air com sapatos",
+  },
+];
+
+const ACTION_VIDEOS = [
+  [
+    "https://ironair.com.br/cdn/shop/videos/c/vp/83f5e912327d4d5c96a5956f59631dd8/83f5e912327d4d5c96a5956f59631dd8.HD-1080p-7.2Mbps-86083940.mp4?v=0",
+    "https://ironair.com.br/cdn/shop/files/preview_images/83f5e912327d4d5c96a5956f59631dd8.thumbnail.0000000000_900x.jpg?v=1781016560",
+  ],
+  [
+    "https://ironair.com.br/cdn/shop/videos/c/vp/384e7866bf164d0b9bfd70ffebb1860e/384e7866bf164d0b9bfd70ffebb1860e.HD-1080p-7.2Mbps-86101814.mp4?v=0",
+    "https://ironair.com.br/cdn/shop/files/preview_images/384e7866bf164d0b9bfd70ffebb1860e.thumbnail.0000000000_900x.jpg?v=1781025408",
+  ],
+  [
+    "https://ironair.com.br/cdn/shop/videos/c/vp/7ff27a4600da444ebdf0dd16f8c7f4fe/7ff27a4600da444ebdf0dd16f8c7f4fe.HD-1080p-7.2Mbps-86101815.mp4?v=0",
+    "https://ironair.com.br/cdn/shop/files/preview_images/WJq89ZZBEF11g-YXsn-wP_loTTd3ZB_00001_900x.jpg?v=1784224691",
+  ],
+  [
+    "https://ironair.com.br/cdn/shop/videos/c/vp/3dc19aa84ff5477793699b1b0975a120/3dc19aa84ff5477793699b1b0975a120.HD-1080p-7.2Mbps-89131270.mp4?v=0",
+    "https://ironair.com.br/cdn/shop/files/preview_images/3dc19aa84ff5477793699b1b0975a120.thumbnail.0000000000_900x.jpg?v=1784224396",
+  ],
+  [
+    "https://ironair.com.br/cdn/shop/videos/c/vp/1fdd648d46654f7b932d323c7aa84e6d/1fdd648d46654f7b932d323c7aa84e6d.HD-1080p-7.2Mbps-89130546.mp4?v=0",
+    "https://ironair.com.br/cdn/shop/files/preview_images/mulher_image_900x.png?v=1784224163",
+  ],
+];
+
+const SIDE_BY_SIDE_ROWS = [
+  [Table2, "Tábua", "Necessária", "Não usa"],
+  [UserRound, "Quem faz o trabalho", "Você", "O aparelho"],
+  [Clock3, "Sua presença", "O tempo todo", "Só para colocar e retirar"],
+  [
+    Shirt,
+    "Como passa",
+    "Parte por parte",
+    <>
+      A peça inteira
+      <br />
+      com fluxo de ar
+    </>,
+  ],
+  [Flame, "Risco de queimar a roupa", "Pode acontecer", "Sem riscos"],
+  [
+    TriangleAlert,
+    "Risco de acidente por contato",
+    <>
+      Superfície
+      <br />
+      extremamente quente
+    </>,
+    "Sem riscos",
+  ],
+  [
+    Power,
+    "Esquecer ligado",
+    "Exige atenção",
+    <>
+      Timer + desligamento
+      <br />
+      automático
+    </>,
+  ],
+  [
+    BicepsFlexed,
+    "Esforço físico",
+    "Movimento repetitivo",
+    <>
+      O aparelho faz
+      <br />o trabalho
+    </>,
+  ],
+  [Coffee, "Enquanto funciona", "Você passa a roupa", "Você faz outra coisa"],
+  [
+    Leaf,
+    "Energia",
+    <>
+      Depende do tempo
+      <br />
+      de uso
+    </>,
+    <>
+      Ciclo programado
+      <br />
+      por timer
+    </>,
+  ],
+];
+
+const COMPARISON_CONFIG = {
+  weeksPerYear: 52,
+  traditionalIron: {
+    activeMinutesPerItem: 8, // Estimativa editável; não é uma medição científica.
+    powerWatts: 1200, // Referência editável para o ferro usado na comparação.
+  },
+  ironAir: {
+    cycleMinutesPerItem: 9, // Ponto médio configurável da faixa pública de 6–12 min.
+    activeSetupMinutesPerItem: 1.5, // Estimativa editável de posicionamento e retirada.
+    powerWattsByVoltage: { "127V": 1250, "220V": 1400 },
+  },
+};
+
+const OFFER_TERMS = {
+  pixDiscount: 0.1,
+  installments: 12,
+  rating: 4.8,
+  reviewCount: 4,
+};
+
+function PaymentMethods({ compact = false }) {
+  return (
+    <div
+      className={`payment-methods ${compact ? "is-compact" : ""}`}
+      aria-label="Meios de pagamento aceitos"
+    >
+      <span className="payment-label">Pagamento seguro</span>
+      <span className="payment-brand visa">VISA</span>
+      <span className="payment-brand mastercard" aria-label="Mastercard">
+        <i />
+        <i />
+      </span>
+      <span className="payment-brand hipercard">Hipercard</span>
+      <span className="payment-brand elo">elo</span>
+      <span className="payment-brand pix">
+        <i /> PIX
+      </span>
+    </div>
+  );
+}
+
+function SocialIcon({ name }) {
+  if (name === "instagram") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4.2" />
+        <circle cx="17.4" cy="6.7" r="1" className="social-fill" />
+      </svg>
+    );
+  }
+  if (name === "facebook") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M14.3 21v-8h2.8l.4-3.1h-3.2V8c0-.9.3-1.5 1.6-1.5h1.7V3.7c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2H8v3.1h2.9v8h3.4Z"
+          className="social-fill"
+        />
+      </svg>
+    );
+  }
+  if (name === "youtube") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 8.1a3 3 0 0 0-2.1-2.2C17 5.4 12 5.4 12 5.4s-5 0-6.9.5A3 3 0 0 0 3 8.1 31 31 0 0 0 2.5 12 31 31 0 0 0 3 15.9a3 3 0 0 0 2.1 2.2c1.9.5 6.9.5 6.9.5s5 0 6.9-.5a3 3 0 0 0 2.1-2.2c.5-1.3.5-3.9.5-3.9s0-2.6-.5-3.9Z" />
+        <path d="m10 15.2 5.2-3.2L10 8.8v6.4Z" className="social-fill" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M15.4 3c.3 2.2 1.6 3.6 3.6 3.8v3.1a8.4 8.4 0 0 1-3.6-.9v6.2a5.8 5.8 0 1 1-5-5.7v3.2a2.7 2.7 0 1 0 1.8 2.5V3h3.2Z"
+        className="social-fill"
+      />
+    </svg>
+  );
+}
+
+function AnimatedNumber({ value, digits = 0 }) {
+  const [display, setDisplay] = useState(value);
+  const previous = useRef(value);
+  useEffect(() => {
+    const from = previous.current;
+    const started = performance.now();
+    let frame;
+    const tick = (now) => {
+      const progress = Math.min((now - started) / 360, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(from + (value - from) * eased);
+      if (progress < 1) frame = requestAnimationFrame(tick);
+      else previous.current = value;
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+  return (
+    <>
+      {display.toLocaleString("pt-BR", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      })}
+    </>
+  );
 }
 
 export default function OfferLanding({ data }) {
   const loaderData = useLoaderData();
   const { product, payOrigin } = data || loaderData;
   const location = useLocation();
-  const firstAvailable = product.variants.find((variant) => variant.available) || product.variants[0];
+  const firstAvailable =
+    product.variants.find((variant) => variant.available) ||
+    product.variants[0];
   const [variantId, setVariantId] = useState(firstAvailable?.id || "");
-  const selected = product.variants.find((variant) => variant.id === variantId) || firstAvailable;
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [weeklyItems, setWeeklyItems] = useState(10);
+  const [comparisonPeriod, setComparisonPeriod] = useState("year");
+  const [activeActionVideo, setActiveActionVideo] = useState(0);
+  const galleryImages = product.images?.length
+    ? product.images
+    : [product.featuredImage].filter(Boolean);
+  const [purchaseImage, setPurchaseImage] = useState(
+    product.featuredImage ||
+      galleryImages[0] ||
+      "/images/hero/iron-air-shirt.png",
+  );
+  const discoveryCarousel = useRef(null);
+  const actionVideosCarousel = useRef(null);
+  const selected =
+    product.variants.find((variant) => variant.id === variantId) ||
+    firstAvailable;
+  const pixPrice = Number(selected?.price || 0) * (1 - OFFER_TERMS.pixDiscount);
+  const installmentPrice =
+    Number(selected?.price || 0) / OFFER_TERMS.installments;
+  const periodMultiplier =
+    comparisonPeriod === "year" ? COMPARISON_CONFIG.weeksPerYear : 1;
+  const traditionalMinutes =
+    weeklyItems *
+    COMPARISON_CONFIG.traditionalIron.activeMinutesPerItem *
+    periodMultiplier;
+  const ironAirCycleMinutes =
+    weeklyItems *
+    COMPARISON_CONFIG.ironAir.cycleMinutesPerItem *
+    periodMultiplier;
+  const ironAirActiveMinutes =
+    weeklyItems *
+    COMPARISON_CONFIG.ironAir.activeSetupMinutesPerItem *
+    periodMultiplier;
+  const ironAirWatts =
+    COMPARISON_CONFIG.ironAir.powerWattsByVoltage[selected?.title] || 1250;
+  const traditionalEnergy =
+    (COMPARISON_CONFIG.traditionalIron.powerWatts / 1000) *
+    (traditionalMinutes / 60);
+  const ironAirEnergy = (ironAirWatts / 1000) * (ironAirCycleMinutes / 60);
+  const annualRecoveredHours =
+    (weeklyItems *
+      (COMPARISON_CONFIG.traditionalIron.activeMinutesPerItem -
+        COMPARISON_CONFIG.ironAir.activeSetupMinutesPerItem) *
+      COMPARISON_CONFIG.weeksPerYear) /
+    60;
+  const periodRecoveredHours =
+    comparisonPeriod === "year"
+      ? annualRecoveredHours
+      : annualRecoveredHours / COMPARISON_CONFIG.weeksPerYear;
   useEffect(() => {
     if (!selected) return;
-    window.fbq?.("track", "ViewContent", { content_ids: [selected.numericId], content_type: "product", value: selected.price, currency: "BRL" });
-    window.gtag?.("event", "view_item", { currency: "BRL", value: selected.price, items: [{ item_id: selected.numericId, item_name: product.title, item_variant: selected.title }] });
+    window.fbq?.("track", "ViewContent", {
+      content_ids: [selected.numericId],
+      content_type: "product",
+      value: selected.price,
+      currency: "BRL",
+    });
+    window.gtag?.("event", "view_item", {
+      currency: "BRL",
+      value: selected.price,
+      items: [
+        {
+          item_id: selected.numericId,
+          item_name: product.title,
+          item_variant: selected.title,
+        },
+      ],
+    });
   }, [product.title, selected]);
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setHeroSlide((current) => (current + 1) % HERO_PRODUCTS.length),
+      5000,
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const track = actionVideosCarousel.current;
+    if (!track) return undefined;
+    let scrollTimer;
+
+    const syncVideos = () => {
+      const cards = Array.from(track.querySelectorAll("article"));
+      const trackRect = track.getBoundingClientRect();
+      const trackCenter = trackRect.left + trackRect.width / 2;
+      let closestIndex = 0;
+      let closestDistance = Infinity;
+
+      cards.forEach((card, index) => {
+        const rect = card.getBoundingClientRect();
+        const distance = Math.abs(rect.left + rect.width / 2 - trackCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      setActiveActionVideo(closestIndex);
+      cards.forEach((card, index) => {
+        const video = card.querySelector("video");
+        if (!video) return;
+        card.classList.toggle("is-active", index === closestIndex);
+        if (index === closestIndex) {
+          video.muted = true;
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      });
+    };
+
+    const onScroll = () => {
+      window.clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(syncVideos, 80);
+    };
+
+    track.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", syncVideos);
+    const initialTimer = window.setTimeout(syncVideos, 100);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearTimeout(scrollTimer);
+      track.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", syncVideos);
+      track.querySelectorAll("video").forEach((video) => video.pause());
+    };
+  }, []);
+
+  function moveHero(direction) {
+    setHeroSlide(
+      (current) =>
+        (current + direction + HERO_PRODUCTS.length) % HERO_PRODUCTS.length,
+    );
+  }
+  function moveDiscovery(direction) {
+    discoveryCarousel.current?.scrollBy({
+      left: direction * Math.min(window.innerWidth * 0.72, 520),
+      behavior: "smooth",
+    });
+  }
+  function moveActionVideos(direction) {
+    const track = actionVideosCarousel.current;
+    if (!track) return;
+    const cards = Array.from(track.querySelectorAll("article"));
+    const nextIndex = Math.max(
+      0,
+      Math.min(activeActionVideo + direction, cards.length - 1),
+    );
+    const card = cards[nextIndex];
+    if (!card) return;
+    const targetLeft =
+      card.offsetLeft - (track.clientWidth - card.clientWidth) / 2;
+    track.scrollTo({ left: targetLeft, behavior: "smooth" });
+  }
   const checkoutUrl = useMemo(() => {
     const params = new URLSearchParams(location.search);
     params.set("variantId", selected?.id || "");
@@ -60,68 +453,965 @@ export default function OfferLanding({ data }) {
   function buy(event) {
     if (!selected?.available) event.preventDefault();
     if (typeof window !== "undefined") {
-      window.fbq?.("track", "InitiateCheckout", { content_ids: [selected?.numericId], content_type: "product", value: selected?.price, currency: "BRL" });
-      window.gtag?.("event", "begin_checkout", { currency: "BRL", value: selected?.price, items: [{ item_id: selected?.numericId, item_name: product.title, item_variant: selected?.title }] });
+      window.fbq?.("track", "InitiateCheckout", {
+        content_ids: [selected?.numericId],
+        content_type: "product",
+        value: selected?.price,
+        currency: "BRL",
+      });
+      window.gtag?.("event", "begin_checkout", {
+        currency: "BRL",
+        value: selected?.price,
+        items: [
+          {
+            item_id: selected?.numericId,
+            item_name: product.title,
+            item_variant: selected?.title,
+          },
+        ],
+      });
     }
   }
 
-  const BuyButton = ({ label = "QUERO MEU IRON AIR" }) => (
-    <a className={`offer-cta ${selected?.available ? "" : "is-disabled"}`} href={checkoutUrl} onClick={buy} aria-disabled={!selected?.available}>
-      {selected?.available ? label : "INDISPONÍVEL NESTA VOLTAGEM"}<ArrowRight size={20} />
+  function goToPurchase(event) {
+    event.preventDefault();
+    document.querySelector("#comprar")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  const BuyButton = ({ label = "QUERO MEU IRON AIR", checkout = false }) => (
+    <a
+      className={`offer-cta ${checkout ? "is-checkout" : ""} ${checkout && !selected?.available ? "is-disabled" : ""}`}
+      href={checkout ? checkoutUrl : "#comprar"}
+      onClick={checkout ? buy : goToPurchase}
+      aria-disabled={checkout && !selected?.available}
+    >
+      {checkout && !selected?.available ? "INDISPONÍVEL NESTA VOLTAGEM" : label}
+      <ArrowRight size={20} />
     </a>
   );
 
   return (
     <main className="offer-page">
+      <header className="promo-bar">
+        Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
+        10% OFF
+      </header>
       <section className="launch-hero" aria-labelledby="launch-title">
         <div className="launch-copy">
           <span>LANÇAMENTO</span>
-          <h1 id="launch-title">Iron Air</h1>
-          <p>O jeito inteligente de cuidar das suas roupas.</p>
+          <h1 id="launch-title">
+            <img
+              className="launch-logo"
+              src="/images/hero/iron-air-logo.png"
+              alt="Iron Air"
+            />
+          </h1>
+          <p>O jeito de passar roupas acaba de mudar.</p>
           <strong>Sem ferro. Sem esforço. Mais tempo para você.</strong>
         </div>
-        <div className="launch-products" aria-hidden="true">
-          <svg viewBox="0 245 1536 625" preserveAspectRatio="xMidYMid meet" role="presentation">
-            <image href="/iron-air-hero-lancamento.png" width="1536" height="1024" />
-          </svg>
+        <div className="launch-products" aria-live="polite">
+          {HERO_PRODUCTS.map((item, index) => {
+            const offset =
+              (index - heroSlide + HERO_PRODUCTS.length) % HERO_PRODUCTS.length;
+            const position =
+              offset === 0 ? "active" : offset === 1 ? "next" : "prev";
+            const left =
+              position === "active"
+                ? "50%"
+                : position === "next"
+                  ? "calc(50% + var(--carousel-gap))"
+                  : "calc(50% - var(--carousel-gap))";
+            const scale = position === "active" ? 1 : 0.72;
+            return (
+              <img
+                key={item.key}
+                className={`launch-product launch-product-${item.key} is-${position}`}
+                style={{ left, transform: `translateX(-50%) scale(${scale})` }}
+                src={item.src}
+                alt={position === "active" ? item.label : ""}
+              />
+            );
+          })}
+          <button
+            className="launch-arrow launch-arrow-prev"
+            type="button"
+            aria-label="Produto anterior"
+            onClick={() => moveHero(-1)}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            className="launch-arrow launch-arrow-next"
+            type="button"
+            aria-label="Próximo produto"
+            onClick={() => moveHero(1)}
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
       </section>
 
       <section className="launch-features" aria-label="Destaques do Iron Air">
-        <article><Wind /><div><strong>TECNOLOGIA DE<br/>FLUXO DE AR</strong><p>Secagem uniforme<br/>sem amassar</p></div></article>
-        <article><MousePointerClick /><div><strong>PAINEL TOUCH<br/>INTUITIVO</strong><p>Controle fácil de<br/>tempo e temperatura</p></div></article>
-        <article><Shirt /><div><strong>CAMISAS E CAMISETAS</strong><p>Do P ao XXG com<br/>ajuste perfeito</p></div></article>
-        <article><PackageCheck /><div><strong>CALÇAS PRONTAS<br/>EM MINUTOS</strong><p>Sem esforço,<br/>sem ferro</p></div></article>
-        <article><Footprints /><div><strong>SAPATOS SEM<br/>MAU CHEIRO</strong><p>Ar quente remove<br/>a umidade</p></div></article>
+        <article>
+          <Wind />
+          <div>
+            <strong>
+              TECNOLOGIA DE
+              <br />
+              FLUXO DE AR
+            </strong>
+            <p>
+              Secagem uniforme
+              <br />
+              sem amassar
+            </p>
+          </div>
+        </article>
+        <article>
+          <MousePointerClick />
+          <div>
+            <strong>
+              PAINEL TOUCH
+              <br />
+              INTUITIVO
+            </strong>
+            <p>
+              Controle fácil de
+              <br />
+              tempo e temperatura
+            </p>
+          </div>
+        </article>
+        <article>
+          <Shirt />
+          <div>
+            <strong>CAMISAS E CAMISETAS</strong>
+            <p>
+              Do P ao XXG com
+              <br />
+              ajuste perfeito
+            </p>
+          </div>
+        </article>
+        <article>
+          <PackageCheck />
+          <div>
+            <strong>
+              CALÇAS PRONTAS
+              <br />
+              EM MINUTOS
+            </strong>
+            <p>
+              Sem esforço,
+              <br />
+              sem ferro
+            </p>
+          </div>
+        </article>
+        <article>
+          <Footprints />
+          <div>
+            <strong>
+              SAPATOS SEM
+              <br />
+              MAU CHEIRO
+            </strong>
+            <p>
+              Ar quente remove
+              <br />a umidade
+            </p>
+          </div>
+        </article>
       </section>
 
-      <section className="offer-section problem"><p className="eyebrow">O PROBLEMA NÃO É A ROUPA</p><h2>É o tempo que você perde para deixá-la pronta.</h2><div className="problem-grid">{["Você já está atrasado e percebe a camisa amarrotada.","Ferro e tábua ocupam espaço e exigem atenção o tempo inteiro.","Várias peças transformam uma tarefa simples em mais uma obrigação."].map((text,i)=><article key={text}><b>0{i+1}</b><p>{text}</p></article>)}</div></section>
+      <section className="offer-section problem discovery">
+        <h2>Conheça o Iron Air.</h2>
+        <p>
+          A tecnologia que seca e alisa suas roupas automaticamente enquanto
+          você aproveita seu tempo com o que realmente importa.
+        </p>
+        <div className="discovery-carousel" ref={discoveryCarousel}>
+          {[
+            ["/images/discovery/iron-air-what-is.png", "O que é o Iron Air"],
+            [
+              "/images/discovery/iron-air-world.png",
+              "Iron Air já conquistou o mundo",
+            ],
+            [
+              "/images/discovery/iron-air-time.png",
+              "Faça mais enquanto o Iron Air trabalha",
+            ],
+            [
+              "/images/discovery/iron-air-technology.png",
+              "Uma nova forma de passar roupas com Iron Air",
+            ],
+            [
+              "/images/discovery/iron-air-moments.png",
+              "Troque tarefas por momentos",
+            ],
+            [
+              "/images/discovery/iron-air-safety.png",
+              "Simples de usar e tranquilo de deixar usar",
+            ],
+            ["/images/discovery/iron-air-versatility.png", "Iron Air 5 em 1"],
+          ].map(([src, alt], index) => (
+            <article key={`${src}-${index}`}>
+              <img src={src} alt={alt} />
+            </article>
+          ))}
+        </div>
+        <div className="discovery-controls">
+          <button
+            type="button"
+            aria-label="Card anterior"
+            onClick={() => moveDiscovery(-1)}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <button
+            type="button"
+            aria-label="Próximo card"
+            onClick={() => moveDiscovery(1)}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </div>
+      </section>
 
-      <section className="offer-section demo"><div><p className="eyebrow">SIMPLES DE ENTENDER</p><h2>Vista. Ajuste. Ligue. Siga sua rotina.</h2><ol><li><span>1</span>Coloque a roupa levemente úmida.</li><li><span>2</span>Ajuste o balão e prenda a peça.</li><li><span>3</span>Defina tempo e temperatura.</li><li><span>4</span>Deixe o Iron Air trabalhar.</li></ol></div><div className="video-placeholder"><Wind size={48}/><strong>Vídeo demonstrativo</strong><span>Conteúdo oficial a inserir</span></div></section>
+      <section className="first-impression-story">
+        <p className="story-kicker">
+          <span />
+          ANTES DE QUALQUER PALAVRA
+          <span />
+        </p>
+        <h2>
+          Antes de ouvirem você,
+          <br />
+          eles já <em>viram</em> você.
+        </h2>
+        <div className="story-copy">
+          <p>
+            Você pode estar preparado para a reunião.
+            <br />
+            Ter a melhor proposta. A experiência certa. A resposta certa.
+          </p>
+          <strong>Mas a primeira impressão acontece antes de tudo isso.</strong>
+          <p>
+            Uma camisa amarrotada não define sua competência.
+            <br />
+            Mas pode transmitir desleixo justamente quando você
+            <br />
+            precisa transmitir confiança.
+          </p>
+        </div>
+        <h3>NÃO DEIXE SUA ROUPA FALAR POR VOCÊ.</h3>
+        <div className="story-scenarios">
+          {[
+            [UserRound, "ENTREVISTA"],
+            [CalendarDays, "REUNIÃO"],
+            [BriefcaseBusiness, "VENDA"],
+            [CircleDot, "ENCONTRO"],
+            [CalendarCheck, "EVENTO"],
+            [Handshake, "NETWORKING"],
+          ].map(([Icon, label]) => (
+            <div key={label}>
+              <Icon />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="story-photo">
+        <img
+          src="/images/story/banner-1.png"
+          alt="Iron Air preparando uma calça enquanto uma pessoa se arruma"
+        />
+      </section>
+      <section className="story-ready">
+        <img
+          src="/images/story/banner-2.png"
+          alt="Camisa branca pronta para usar"
+        />
+        <div className="story-ready-copy">
+          <h2>
+            Esteja pronto.
+            <br />O Iron Air
+            <br />
+            cuida do resto.
+          </h2>
+          <p className="supporting-copy">
+            Tecnologia que passa, seca e higieniza suas roupas
+            <br />
+            com praticidade e segurança.
+          </p>
+          <a href="#comprar" onClick={goToPurchase}>
+            CONHECER O IRON AIR
+          </a>
+        </div>
+      </section>
 
-      <section className="offer-section"><p className="eyebrow">MAIS PRATICIDADE</p><h2>Feito para uma rotina que não pode parar.</h2><div className="benefit-grid">{[[Clock3,"Menos tempo ativo passando roupa"],[Sparkles,"Ajuda a reduzir amassados"],[Wind,"Mãos livres durante o ciclo"],[PackageCheck,"Compacto e fácil de usar"]].map(([Icon,text])=><article key={text}><Icon/><strong>{text}</strong></article>)}</div></section>
+      <section className="action-videos-section">
+        <div className="action-videos-heading">
+          <h2>Veja o Iron Air em ação</h2>
+          <p>Vídeos rápidos mostrando o produto no dia a dia.</p>
+        </div>
+        <div className="action-videos-shell">
+          <button
+            className="action-video-arrow is-prev"
+            type="button"
+            aria-label="Vídeo anterior"
+            onClick={() => moveActionVideos(-1)}
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <div className="action-videos-track" ref={actionVideosCarousel}>
+            {ACTION_VIDEOS.map(([src, poster], index) => (
+              <article
+                key={src}
+                className={index === activeActionVideo ? "is-active" : ""}
+                onClick={() => {
+                  const track = actionVideosCarousel.current;
+                  const card = track?.querySelectorAll("article")[index];
+                  if (card)
+                    track.scrollTo({
+                      left:
+                        card.offsetLeft -
+                        (track.clientWidth - card.clientWidth) / 2,
+                      behavior: "smooth",
+                    });
+                }}
+              >
+                <video
+                  src={src}
+                  poster={poster}
+                  playsInline
+                  loop
+                  muted
+                  preload={index === activeActionVideo ? "auto" : "metadata"}
+                  aria-label={`Iron Air em ação — vídeo ${index + 1}`}
+                />
+              </article>
+            ))}
+          </div>
+          <button
+            className="action-video-arrow is-next"
+            type="button"
+            aria-label="Próximo vídeo"
+            onClick={() => moveActionVideos(1)}
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+      </section>
 
-      <section className="offer-section comparison"><p className="eyebrow">ESCOLHA O SEU PROCESSO</p><h2>Ferro + tábua ou Iron Air?</h2><div className="compare-grid"><article><h3>Ferro + tábua</h3><p>Atenção e movimento manual durante toda a tarefa.</p><p>Mais espaço para montar e guardar.</p><p>Você fica preso à peça até terminar.</p></article><article className="highlight"><h3>Iron Air</h3><p>Ajuste a peça e deixe o ciclo trabalhar.</p><p>Estrutura compacta para a rotina.</p><p>Suas mãos ficam livres durante o processo.</p></article></div></section>
+      <section
+        className="side-by-side-comparison"
+        aria-labelledby="side-by-side-title"
+      >
+        <div className="side-by-side-inner">
+          <h2 id="side-by-side-title">
+            <span className="side-by-side-title-lead">
+              O ferro precisa de você.
+            </span>
+            <span className="side-by-side-title-main">
+              O Iron Air trabalha por você.
+            </span>
+          </h2>
+          <div
+            className="side-by-side-products"
+            aria-label="Comparação visual entre ferro tradicional e Iron Air"
+          >
+            <figure>
+              <img
+                src="/images/comparison/traditional-iron.png"
+                alt="Ferro tradicional"
+              />
+              <figcaption>Ferro tradicional</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="/images/hero/iron-air-shirt.png"
+                alt="Iron Air com camisa"
+              />
+              <figcaption>Iron Air</figcaption>
+            </figure>
+          </div>
+          <div
+            className="side-by-side-table"
+            role="table"
+            aria-label="Comparação entre ferro tradicional e Iron Air"
+          >
+            <div className="side-by-side-head" role="row">
+              <span role="columnheader" />
+              <span role="columnheader">— Ferro tradicional</span>
+              <strong role="columnheader">Iron Air</strong>
+            </div>
+            {SIDE_BY_SIDE_ROWS.map(([Icon, label, traditional, ironAir]) => (
+              <div className="side-by-side-row" role="row" key={label}>
+                <div className="side-by-side-label" role="rowheader">
+                  <Icon aria-hidden="true" />
+                  <span>{label}</span>
+                </div>
+                <span className="comparison-value is-traditional" role="cell">
+                  <CircleX aria-hidden="true" />
+                  <span>{traditional}</span>
+                </span>
+                <strong className="comparison-value is-iron-air" role="cell">
+                  <CircleCheck aria-hidden="true" />
+                  <span>{ironAir}</span>
+                </strong>
+              </div>
+            ))}
+          </div>
+          <p className="side-by-side-closing">
+            Não é um ferro melhor.
+            <br />
+            <strong>É outra forma de passar roupa.</strong>
+          </p>
+        </div>
+      </section>
 
-      <section className="offer-section proof"><p className="eyebrow">DEMONSTRAÇÃO REAL</p><h2>Veja resultados e experiências de quem usa.</h2><div className="proof-grid"><div>Vídeo / UGC<br/><small>Conteúdo pendente</small></div><div>Depoimentos verificados<br/><small>Conteúdo pendente</small></div><div>Antes e depois<br/><small>Conteúdo pendente</small></div></div></section>
+      <section className="offer-section comparison comparison-lab legacy-comparison">
+        <h2>Ferro + tábua ou Iron Air?</h2>
+        <div className="comparison-console">
+          <div className="comparison-slider">
+            <div>
+              <label htmlFor="weekly-items">
+                Quantas peças você costuma passar por semana?
+              </label>
+              <strong>
+                <AnimatedNumber value={weeklyItems} /> peças{" "}
+                <span>/ semana</span>
+              </strong>
+            </div>
+            <input
+              id="weekly-items"
+              type="range"
+              min="1"
+              max="30"
+              step="1"
+              value={weeklyItems}
+              onChange={(event) => setWeeklyItems(Number(event.target.value))}
+              style={{
+                "--range-progress": `${((weeklyItems - 1) / 29) * 100}%`,
+              }}
+            />
+            <div className="range-marks">
+              {[1, 5, 10, 15, 20, 25, 30].map((mark) => (
+                <span key={mark}>{mark}</span>
+              ))}
+            </div>
+          </div>
+          <div className="period-toggle" aria-label="Período da comparação">
+            <button
+              type="button"
+              className={comparisonPeriod === "week" ? "selected" : ""}
+              onClick={() => setComparisonPeriod("week")}
+            >
+              POR SEMANA
+            </button>
+            <button
+              type="button"
+              className={comparisonPeriod === "year" ? "selected" : ""}
+              onClick={() => setComparisonPeriod("year")}
+            >
+              POR ANO
+            </button>
+          </div>
+          <div className="comparison-cards">
+            <article className="method-card traditional">
+              <div className="method-heading">
+                <span className="method-icon">
+                  <Shirt />
+                </span>
+                <div>
+                  <small>MÉTODO TRADICIONAL</small>
+                  <h3>Ferro + tábua</h3>
+                </div>
+              </div>
+              <dl>
+                <div>
+                  <dt>Tempo de funcionamento</dt>
+                  <dd>
+                    <AnimatedNumber
+                      value={
+                        comparisonPeriod === "year"
+                          ? traditionalMinutes / 60
+                          : traditionalMinutes
+                      }
+                      digits={comparisonPeriod === "year" ? 1 : 0}
+                    />{" "}
+                    {comparisonPeriod === "year" ? "h" : "min"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Energia estimada</dt>
+                  <dd>
+                    <AnimatedNumber value={traditionalEnergy} digits={1} /> kWh/
+                    {comparisonPeriod === "year" ? "ano" : "semana"}
+                  </dd>
+                </div>
+                <div className="presence">
+                  <dt>Tempo que exige sua presença</dt>
+                  <dd>
+                    <AnimatedNumber
+                      value={
+                        comparisonPeriod === "year"
+                          ? traditionalMinutes / 60
+                          : traditionalMinutes
+                      }
+                      digits={comparisonPeriod === "year" ? 1 : 0}
+                    />{" "}
+                    {comparisonPeriod === "year" ? "horas" : "min"}
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                O ferro não apenas consome energia.{" "}
+                <strong>Ele ocupa você.</strong>
+              </p>
+            </article>
+            <div className="versus">VS.</div>
+            <article className="method-card iron-air">
+              <div className="method-heading">
+                <img src="/images/hero/iron-air-shirt.png" alt="" />
+                <div>
+                  <small>TECNOLOGIA MÃOS LIVRES</small>
+                  <h3>Iron Air</h3>
+                </div>
+              </div>
+              <dl>
+                <div>
+                  <dt>Tempo de funcionamento</dt>
+                  <dd>
+                    <AnimatedNumber
+                      value={
+                        comparisonPeriod === "year"
+                          ? ironAirCycleMinutes / 60
+                          : ironAirCycleMinutes
+                      }
+                      digits={comparisonPeriod === "year" ? 1 : 0}
+                    />{" "}
+                    {comparisonPeriod === "year" ? "h" : "min"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Energia estimada ({selected?.title})</dt>
+                  <dd>
+                    <AnimatedNumber value={ironAirEnergy} digits={1} /> kWh/
+                    {comparisonPeriod === "year" ? "ano" : "semana"}
+                  </dd>
+                </div>
+                <div className="presence premium">
+                  <dt>Tempo que exige sua presença</dt>
+                  <dd>
+                    <AnimatedNumber
+                      value={
+                        comparisonPeriod === "year"
+                          ? ironAirActiveMinutes / 60
+                          : ironAirActiveMinutes
+                      }
+                      digits={comparisonPeriod === "year" ? 1 : 0}
+                    />{" "}
+                    {comparisonPeriod === "year" ? "horas" : "min"}*
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                Depois de ajustar a peça,{" "}
+                <strong>
+                  o Iron Air trabalha enquanto você faz outra coisa.
+                </strong>
+              </p>
+            </article>
+          </div>
+          <div className="time-bars">
+            <h3>Tempo que depende de você</h3>
+            <div>
+              <span>FERRO</span>
+              <i>
+                <b style={{ width: "100%" }} />
+              </i>
+              <strong>
+                <AnimatedNumber
+                  value={
+                    comparisonPeriod === "year"
+                      ? traditionalMinutes / 60
+                      : traditionalMinutes
+                  }
+                  digits={comparisonPeriod === "year" ? 1 : 0}
+                />{" "}
+                {comparisonPeriod === "year" ? "h" : "min"}
+              </strong>
+            </div>
+            <div className="iron-bar">
+              <span>IRON AIR</span>
+              <i>
+                <b
+                  style={{
+                    width: `${Math.max(4, (ironAirActiveMinutes / traditionalMinutes) * 100)}%`,
+                  }}
+                />
+              </i>
+              <strong>
+                <AnimatedNumber
+                  value={
+                    comparisonPeriod === "year"
+                      ? ironAirActiveMinutes / 60
+                      : ironAirActiveMinutes
+                  }
+                  digits={comparisonPeriod === "year" ? 1 : 0}
+                />{" "}
+                {comparisonPeriod === "year" ? "h" : "min"}
+              </strong>
+            </div>
+          </div>
+          <div className="comparison-result">
+            <p>
+              COM <AnimatedNumber value={weeklyItems} /> PEÇAS POR SEMANA...
+            </p>
+            <h3>
+              Você pode recuperar até{" "}
+              <strong>
+                <AnimatedNumber value={periodRecoveredHours} digits={1} />{" "}
+                {comparisonPeriod === "year"
+                  ? "HORAS POR ANO"
+                  : "HORAS POR SEMANA"}
+              </strong>{" "}
+              do seu tempo.*
+            </h3>
+            {comparisonPeriod === "year" ? (
+              <div className="time-equivalences">
+                <span>
+                  <b>
+                    <AnimatedNumber
+                      value={annualRecoveredHours / 8}
+                      digits={1}
+                    />
+                  </b>{" "}
+                  dias úteis
+                </span>
+                <span>
+                  <b>
+                    <AnimatedNumber
+                      value={annualRecoveredHours / 2}
+                      digits={0}
+                    />
+                  </b>{" "}
+                  filmes de 2 horas
+                </span>
+                <span>
+                  <b>
+                    <AnimatedNumber
+                      value={annualRecoveredHours / 0.5}
+                      digits={0}
+                    />
+                  </b>{" "}
+                  cafés sem pressa
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <div className="comparison-impact">
+            <p>O FERRO CONSOME ENERGIA.</p>
+            <h3>MAS O QUE ELE MAIS CONSOME É O SEU TEMPO.</h3>
+            <span>
+              O Iron Air foi criado para devolver esse tempo para você.
+            </span>
+            <BuyButton />
+          </div>
+          <div className="result-copy">
+            <p className="eyebrow">SEU RESULTADO</p>
+            <h3>IMAGINE O QUE VOCÊ FARIA COM ESSE TEMPO DE VOLTA.</h3>
+            <div>
+              <span>☕ Mais manhãs sem pressa.</span>
+              <span>👨‍👩‍👧 Mais tempo com quem importa.</span>
+              <span>💼 Mais tempo para trabalhar.</span>
+              <span>🏋️ Mais tempo para você.</span>
+            </div>
+            <p>
+              Porque tecnologia de verdade não deveria apenas fazer uma tarefa
+              melhor.
+            </p>
+            <strong>Deveria fazer a tarefa por você.</strong>
+            <BuyButton />
+          </div>
+          <details className="methodology">
+            <summary>Como calculamos?</summary>
+            <p>
+              Estimativas calculadas a partir da quantidade de peças
+              selecionada, tempo médio configurado para cada método e potência
+              nominal dos aparelhos. Para o Iron Air, usamos{" "}
+              {selected?.title === "220V" ? "1400W" : "1250W"}; para o ferro
+              tradicional, a referência editável é 1200W. O consumo e o tempo
+              reais podem variar conforme tecido, umidade, configuração
+              utilizada, aparelho comparado e hábitos do usuário.
+            </p>
+          </details>
+        </div>
+      </section>
 
-      <section className="offer-section safety"><ShieldCheck size={42}/><div><p className="eyebrow">SEGURANÇA NO USO</p><h2>Proteções descritas na documentação oficial.</h2><p>Desligamento automático após o ciclo, sistema anti-superaquecimento e desligamento em caso de queda.</p><small>Número de certificação regulatória não publicado enquanto não houver documento oficial disponível.</small></div></section>
+      <section className="offer-section proof">
+        <div className="proof-heading">
+          <h2>O que dizem os clientes</h2>
+          <span className="proof-score">
+            ★★★★★ <b>4.8</b> <small>20</small>
+          </span>
+        </div>
+        <div className="proof-grid">
+          {[
+            [
+              "Roberto",
+              5,
+              "Comprei sem acreditar muito porque parecia aquelas coisas que prometem demais. Testei numa camisa social e me surpreendeu.",
+            ],
+            [
+              "Sonya",
+              5,
+              "Tenho filho pequeno e roupa acumula. Antes era um sofrimento montar tábua e ferro. Agora coloco e vou fazendo outras coisas.",
+            ],
+            [
+              "Gustavo",
+              5,
+              "Pra quem odeia passar roupa igual eu, virou rotina aqui em casa. Coloco enquanto tomo banho e a roupa já sai pronta. Só precisa pegar o jeito de prender a roupa direito.",
+            ],
+            [
+              "Jeferson",
+              4,
+              "Gostei muito, passa bem as roupas, mas minha jaqueta não passou bem, acredito por ser muito grossa e ser difícil passar até no ferro tradicional.",
+            ],
+          ].map(([name, rating, text]) => (
+            <article key={name}>
+              <div className="review-stars">
+                {"★".repeat(rating)}
+                {"☆".repeat(5 - rating)}
+              </div>
+              <strong>
+                {name} <span aria-label="Avaliação verificada">●</span>
+              </strong>
+              <p>{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
-      <section className="offer-section offer-box" id="comprar"><div><p className="eyebrow">ESCOLHA SUA VOLTAGEM</p><h2>{product.title}</h2><div className="voltage-options">{product.variants.map((variant)=><button key={variant.id} type="button" className={variant.id===selected?.id?"selected":""} disabled={!variant.available} onClick={()=>setVariantId(variant.id)}>{variant.title}<small>{variant.available?"Disponível":"Sem estoque"}</small></button>)}</div><p className="stock-note">Disponibilidade consultada na Shopify. A confirmação final ocorre antes da criação do pagamento.</p></div><div className="price-card">{selected?.compareAtPrice?<del>{money(selected.compareAtPrice)}</del>:null}<strong>{money(selected?.price)}</strong><span>Pagamento via Pix ou cartão. Parcelamento e frete são confirmados no checkout.</span><BuyButton /></div></section>
+      <section
+        className="offer-section guarantee"
+        aria-labelledby="guarantee-title"
+      >
+        <div className="guarantee-seal" aria-hidden="true">
+          <strong>7</strong>
+          <span>DIAS</span>
+        </div>
+        <div className="guarantee-copy">
+          <p className="eyebrow">COMPRE COM TRANQUILIDADE</p>
+          <h2 id="guarantee-title">Você tem 7 dias para decidir.</h2>
+          <p>
+            Receba o Iron Air, conheça o produto e veja como ele se encaixa na
+            sua rotina. Se você decidir que ele não é para você, solicite a
+            devolução dentro do prazo de 7 dias.
+          </p>
+          <small>
+            Consulte as condições e o procedimento na política de devolução.
+          </small>
+        </div>
+      </section>
 
-      <section className="offer-section faq"><p className="eyebrow">PERGUNTAS FREQUENTES</p><h2>Antes de decidir</h2>{[
-        ["O Iron Air passa a roupa?","O produto seca e ajuda a reduzir amassados e modelar peças compatíveis. O resultado depende do tecido e do ajuste da roupa."],
-        ["Ele gera pressão na roupa?","O balão infla e ajuda a manter a peça esticada durante o fluxo de ar quente."],
-        ["Quais peças podem ser usadas?","A documentação oficial cita camisas, camisetas, polos e calças, seguindo as orientações de ajuste e temperatura."],
-        ["Quanto tempo leva?","O tempo varia conforme tecido, umidade e peça. Ajuste o ciclo seguindo as instruções do produto."],
-        ["Tem 127V e 220V?","Sim. Selecione a voltagem correta antes de continuar para o checkout."],
-        ["Qual é a garantia?","A condição e o prazo comercial precisam ser confirmados pela Iron Air antes da publicação de uma resposta definitiva."],
-        ["Como funciona o envio?","O CEP e as opções disponíveis são consultados no checkout."],
-        ["É seguro?","Use a tensão correta e siga o manual. O produto possui as proteções descritas na seção de segurança acima."],
-      ].map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</section>
+      <section className="offer-section offer-box" id="comprar">
+        <div className="purchase-media">
+          <div className="purchase-main-image">
+            <img src={purchaseImage} alt={product.title} />
+          </div>
+          {galleryImages.length > 1 ? (
+            <div className="purchase-gallery" aria-label="Galeria do produto">
+              {galleryImages.map((image, index) => (
+                <button
+                  key={`${image}-${index}`}
+                  type="button"
+                  className={image === purchaseImage ? "selected" : ""}
+                  onClick={() => setPurchaseImage(image)}
+                  aria-label={`Ver imagem ${index + 1} de ${product.title}`}
+                >
+                  <img src={image} alt="" />
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="purchase-info">
+          <p className="eyebrow">ESCOLHA SUA VOLTAGEM</p>
+          <h2>{product.title}</h2>
+          <div
+            className="purchase-rating"
+            aria-label="4,8 de 5 estrelas, 4 avaliações"
+          >
+            <span aria-hidden="true">★★★★★</span>
+            <strong>{OFFER_TERMS.rating.toFixed(1)}</strong>
+            <small>({OFFER_TERMS.reviewCount} Avaliações)</small>
+          </div>
+          <div className="purchase-price">
+            {selected?.compareAtPrice ? (
+              <del>{money(selected.compareAtPrice)}</del>
+            ) : null}
+            <strong>{money(pixPrice)}</strong>
+            <span className="pix-caption">com 10% OFF no Pix</span>
+            <p className="installments">
+              ou <b>{money(selected?.price)}</b> em até{" "}
+              {OFFER_TERMS.installments}x de <b>{money(installmentPrice)}</b>{" "}
+              s/juros
+            </p>
+          </div>
+          <strong className="voltage-label">Voltagem</strong>
+          <div className="voltage-options">
+            {product.variants.map((variant) => (
+              <button
+                key={variant.id}
+                type="button"
+                className={variant.id === selected?.id ? "selected" : ""}
+                disabled={!variant.available}
+                onClick={() => setVariantId(variant.id)}
+              >
+                {variant.title}
+                <small>
+                  {variant.available ? "Disponível" : "Sem estoque"}
+                </small>
+              </button>
+            ))}
+          </div>
+          <BuyButton label="COMPRAR AGORA" checkout />
+          <PaymentMethods compact />
+        </div>
+      </section>
 
-      <section className="final-cta"><h2>Sua roupa pronta para falar por você.</h2><p>Escolha a voltagem e finalize sua compra no checkout oficial Iron Air.</p><BuyButton /></section>
-      <footer>© 2026 Iron Air Brasil · Checkout processado com segurança</footer>
+      <section className="offer-section faq" id="perguntas">
+        <h2>Perguntas frequentes</h2>
+        <div className="faq-list">
+          {[
+            [
+              "O Iron Air passa a roupa?",
+              "O produto seca e ajuda a reduzir amassados e modelar peças compatíveis. O resultado depende do tecido e do ajuste da roupa.",
+            ],
+            [
+              "Ele gera pressão na roupa?",
+              "O balão infla e ajuda a manter a peça esticada durante o fluxo de ar quente.",
+            ],
+            [
+              "Quais peças podem ser usadas?",
+              "A documentação oficial cita camisas, camisetas, polos e calças, seguindo as orientações de ajuste e temperatura.",
+            ],
+            [
+              "Quanto tempo leva?",
+              "O tempo varia conforme tecido, umidade e peça. Ajuste o ciclo seguindo as instruções do produto.",
+            ],
+            [
+              "Tem 127V e 220V?",
+              "Sim. Selecione a voltagem correta antes de continuar para o checkout.",
+            ],
+            [
+              "Qual é a garantia?",
+              "A condição e o prazo comercial precisam ser confirmados pela Iron Air antes da publicação de uma resposta definitiva.",
+            ],
+            [
+              "Como funciona o envio?",
+              "O CEP e as opções disponíveis são consultados no checkout.",
+            ],
+            [
+              "É seguro?",
+              "Use a tensão correta e siga o manual. O produto possui as proteções descritas na seção de segurança acima.",
+            ],
+          ].map(([q, a]) => (
+            <details key={q}>
+              <summary>{q}</summary>
+              <p>{a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <footer className="trust-footer">
+        <div className="trust-footer-inner">
+          <div className="trust-footer-main">
+            <div className="trust-footer-brand">
+              <img src="/images/hero/iron-air-logo.png" alt="Iron Air" />
+              <p>
+                Elevando o padrão de cuidado com roupas através de tecnologia,
+                praticidade e confiança.
+              </p>
+              <div className="footer-socials" aria-label="Redes sociais">
+                {[
+                  ["instagram", "https://www.instagram.com/ironairbrasil/"],
+                  [
+                    "facebook",
+                    "https://www.facebook.com/profile.php?id=61589217872180",
+                  ],
+                  ["youtube", "https://www.youtube.com/@IronAirBrasil"],
+                  ["tiktok", "https://www.tiktok.com/@ironairbrasil"],
+                ].map(([name, href]) => (
+                  <a
+                    key={name}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Iron Air no ${name}`}
+                  >
+                    <SocialIcon name={name} />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="footer-column">
+              <strong>SUPORTE</strong>
+              <a href="#comprar">Comprar Iron Air</a>
+              <a href="#perguntas">Perguntas frequentes</a>
+              <span>Política de privacidade</span>
+              <span>Termos de uso</span>
+            </div>
+
+            <div className="footer-column">
+              <strong>ATENDIMENTO</strong>
+              <span>Segunda a sexta · 9h às 17h</span>
+              <span>Belo Horizonte, MG</span>
+              <span>CNPJ: 64.158.825/0001-11</span>
+            </div>
+          </div>
+
+          <div className="ecommerce-seals" aria-label="Selos da loja">
+            <div className="ecommerce-seal">
+              <ShieldCheck aria-hidden="true" />
+              <span>
+                <b>COMPRA SEGURA</b>Ambiente protegido
+              </span>
+            </div>
+            <div className="ecommerce-seal">
+              <CalendarCheck aria-hidden="true" />
+              <span>
+                <b>7 DIAS</b>Para solicitar devolução
+              </span>
+            </div>
+            <div className="ecommerce-seal">
+              <PackageCheck aria-hidden="true" />
+              <span>
+                <b>PEDIDO CONFIRMADO</b>Após aprovação do pagamento
+              </span>
+            </div>
+            <div className="ecommerce-seal inmetro-seal">
+              <span className="inmetro-mark">INMETRO</span>
+              <span>
+                <b>CONFORMIDADE</b>Consulte o registro do produto
+              </span>
+            </div>
+          </div>
+
+          <div className="trust-footer-bottom">
+            <span>© 2026 IRON AIR BRASIL. Todos os direitos reservados.</span>
+            <PaymentMethods />
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
