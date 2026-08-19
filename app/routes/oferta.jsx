@@ -285,6 +285,7 @@ function OptimizedImage({
   height,
   className,
   style,
+  classOnImage = false,
   loading = "lazy",
   fetchPriority = "auto",
 }) {
@@ -297,10 +298,15 @@ function OptimizedImage({
       )
       .join(", ");
   return (
-    <picture className={className} style={style}>
+    <picture
+      className={classOnImage ? undefined : className}
+      style={classOnImage ? undefined : style}
+    >
       <source type="image/avif" srcSet={srcSet("avif")} sizes={sizes} />
       <source type="image/webp" srcSet={srcSet("webp")} sizes={sizes} />
       <img
+        className={classOnImage ? className : undefined}
+        style={classOnImage ? style : undefined}
         src={`/images/optimized/${name}-${largest}.webp`}
         alt={alt}
         width={width}
@@ -616,6 +622,7 @@ export default function OfferLanding({ data }) {
               <OptimizedImage
                 key={item.key}
                 className={`launch-product launch-product-${item.key} is-${position}`}
+                classOnImage
                 style={{ left, transform: `translateX(-50%) scale(${scale})` }}
                 name={item.image}
                 alt={position === "active" ? item.label : ""}
