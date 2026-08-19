@@ -2487,7 +2487,7 @@
 
   .launch-products {
     top: 235px;
-    bottom: clamp(90px, 18vh, 170px);
+    bottom: 14px;
   }
 
   .launch-product,
@@ -2496,8 +2496,8 @@
   .launch-product-pants {
     display: block;
     bottom: 0;
-    width: min(72vw, 300px);
-    height: auto;
+    width: auto;
+    height: 100%;
   }
 
   .launch-product.is-prev {
