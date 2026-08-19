@@ -7,7 +7,8 @@ export function meta() {
 
 export function loader() {
   return {
-    metaPixelId: process.env.PUBLIC_META_PIXEL_ID || "",
+    metaPixelId:
+      process.env.PUBLIC_META_PIXEL_ID || "1605257171025393",
     gaMeasurementId: process.env.PUBLIC_GA_MEASUREMENT_ID || "",
   };
 }

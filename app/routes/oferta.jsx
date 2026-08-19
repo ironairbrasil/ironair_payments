@@ -21,7 +21,6 @@ import {
   Power,
   ShieldCheck,
   Shirt,
-  Sparkles,
   Table2,
   TriangleAlert,
   UserRound,
@@ -35,7 +34,37 @@ import { getIronAirPublicProduct } from "../services/ironair-product.server";
 import landingStyles from "../styles/oferta.css?url";
 
 export function links() {
-  return [{ rel: "stylesheet", href: landingStyles }];
+  return [
+    { rel: "stylesheet", href: landingStyles },
+    {
+      rel: "preload",
+      as: "image",
+      href: "/images/optimized/hero-background-768.avif",
+      media: "(max-width: 800px)",
+      fetchPriority: "high",
+    },
+    {
+      rel: "preload",
+      as: "image",
+      href: "/images/optimized/hero-background-1536.avif",
+      media: "(min-width: 801px)",
+      fetchPriority: "high",
+    },
+    {
+      rel: "preload",
+      as: "image",
+      href: "/images/optimized/iron-air-shirt-500.avif",
+      media: "(max-width: 800px)",
+      fetchPriority: "high",
+    },
+    {
+      rel: "preload",
+      as: "image",
+      href: "/images/optimized/iron-air-shirt-1000.avif",
+      media: "(min-width: 801px)",
+      fetchPriority: "high",
+    },
+  ];
 }
 
 export function meta() {
@@ -69,17 +98,17 @@ function money(value) {
 const HERO_PRODUCTS = [
   {
     key: "shirt",
-    src: "/images/hero/iron-air-shirt.png",
+    image: "iron-air-shirt",
     label: "Iron Air com camisa",
   },
   {
     key: "pants",
-    src: "/images/hero/iron-air-pants.png",
+    image: "iron-air-pants",
     label: "Iron Air com calça",
   },
   {
     key: "shoes",
-    src: "/images/hero/iron-air-shoes.png",
+    image: "iron-air-shoes",
     label: "Iron Air com sapatos",
   },
 ];
@@ -247,6 +276,43 @@ function SocialIcon({ name }) {
   );
 }
 
+function OptimizedImage({
+  name,
+  alt,
+  widths,
+  sizes,
+  width,
+  height,
+  className,
+  style,
+  loading = "lazy",
+  fetchPriority = "auto",
+}) {
+  const largest = widths[widths.length - 1];
+  const srcSet = (format) =>
+    widths
+      .map(
+        (sourceWidth) =>
+          `/images/optimized/${name}-${sourceWidth}.${format} ${sourceWidth}w`,
+      )
+      .join(", ");
+  return (
+    <picture className={className} style={style}>
+      <source type="image/avif" srcSet={srcSet("avif")} sizes={sizes} />
+      <source type="image/webp" srcSet={srcSet("webp")} sizes={sizes} />
+      <img
+        src={`/images/optimized/${name}-${largest}.webp`}
+        alt={alt}
+        width={width}
+        height={height}
+        loading={loading}
+        decoding="async"
+        fetchPriority={fetchPriority}
+      />
+    </picture>
+  );
+}
+
 function AnimatedNumber({ value, digits = 0 }) {
   const [display, setDisplay] = useState(value);
   const previous = useRef(value);
@@ -286,6 +352,7 @@ export default function OfferLanding({ data }) {
   const [weeklyItems, setWeeklyItems] = useState(10);
   const [comparisonPeriod, setComparisonPeriod] = useState("year");
   const [activeActionVideo, setActiveActionVideo] = useState(0);
+  const [actionVideosReady, setActionVideosReady] = useState(false);
   const galleryImages = product.images?.length
     ? product.images
     : [product.featuredImage].filter(Boolean);
@@ -296,6 +363,7 @@ export default function OfferLanding({ data }) {
   );
   const discoveryCarousel = useRef(null);
   const actionVideosCarousel = useRef(null);
+  const actionVideosSection = useRef(null);
   const selected =
     product.variants.find((variant) => variant.id === variantId) ||
     firstAvailable;
@@ -360,8 +428,22 @@ export default function OfferLanding({ data }) {
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
+    const section = actionVideosSection.current;
+    if (!section) return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setActionVideosReady(true);
+        observer.disconnect();
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
     const track = actionVideosCarousel.current;
-    if (!track) return undefined;
+    if (!track || !actionVideosReady) return undefined;
     let scrollTimer;
 
     const syncVideos = () => {
@@ -409,7 +491,7 @@ export default function OfferLanding({ data }) {
       window.removeEventListener("resize", syncVideos);
       track.querySelectorAll("video").forEach((video) => video.pause());
     };
-  }, []);
+  }, [actionVideosReady]);
 
   function moveHero(direction) {
     setHeroSlide(
@@ -503,10 +585,15 @@ export default function OfferLanding({ data }) {
         <div className="launch-copy">
           <span>LANÇAMENTO</span>
           <h1 id="launch-title">
-            <img
+            <OptimizedImage
               className="launch-logo"
-              src="/images/hero/iron-air-logo.png"
+              name="iron-air-logo"
               alt="Iron Air"
+              widths={[400, 800]}
+              sizes="(max-width: 800px) 252px, 434px"
+              width={2172}
+              height={724}
+              loading="eager"
             />
           </h1>
           <p>O jeito de passar roupas acaba de mudar.</p>
@@ -526,12 +613,18 @@ export default function OfferLanding({ data }) {
                   : "calc(50% - var(--carousel-gap))";
             const scale = position === "active" ? 1 : 0.72;
             return (
-              <img
+              <OptimizedImage
                 key={item.key}
                 className={`launch-product launch-product-${item.key} is-${position}`}
                 style={{ left, transform: `translateX(-50%) scale(${scale})` }}
-                src={item.src}
+                name={item.image}
                 alt={position === "active" ? item.label : ""}
+                widths={[500, 1000]}
+                sizes="(max-width: 800px) 62vw, 500px"
+                width={1000}
+                height={1000}
+                loading={item.key === "shirt" ? "eager" : "lazy"}
+                fetchPriority={item.key === "shirt" ? "high" : "low"}
               />
             );
           })}
@@ -635,31 +728,38 @@ export default function OfferLanding({ data }) {
         </p>
         <div className="discovery-carousel" ref={discoveryCarousel}>
           {[
-            ["/images/discovery/iron-air-what-is.png", "O que é o Iron Air"],
+            ["iron-air-what-is", "O que é o Iron Air", 1086, 1448],
+            ["iron-air-world", "Iron Air já conquistou o mundo", 1054, 1492],
             [
-              "/images/discovery/iron-air-world.png",
-              "Iron Air já conquistou o mundo",
-            ],
-            [
-              "/images/discovery/iron-air-time.png",
+              "iron-air-time",
               "Faça mais enquanto o Iron Air trabalha",
+              1054,
+              1492,
             ],
             [
-              "/images/discovery/iron-air-technology.png",
+              "iron-air-technology",
               "Uma nova forma de passar roupas com Iron Air",
+              1054,
+              1492,
             ],
+            ["iron-air-moments", "Troque tarefas por momentos", 1086, 1448],
             [
-              "/images/discovery/iron-air-moments.png",
-              "Troque tarefas por momentos",
-            ],
-            [
-              "/images/discovery/iron-air-safety.png",
+              "iron-air-safety",
               "Simples de usar e tranquilo de deixar usar",
+              1086,
+              1448,
             ],
-            ["/images/discovery/iron-air-versatility.png", "Iron Air 5 em 1"],
-          ].map(([src, alt], index) => (
-            <article key={`${src}-${index}`}>
-              <img src={src} alt={alt} />
+            ["iron-air-versatility", "Iron Air 5 em 1", 1024, 1536],
+          ].map(([name, alt, width, height], index) => (
+            <article key={`${name}-${index}`}>
+              <OptimizedImage
+                name={name}
+                alt={alt}
+                widths={[360, 720]}
+                sizes="(max-width: 800px) 78vw, 390px"
+                width={width}
+                height={height}
+              />
             </article>
           ))}
         </div>
@@ -725,15 +825,23 @@ export default function OfferLanding({ data }) {
         </div>
       </section>
       <section className="story-photo">
-        <img
-          src="/images/story/banner-1.png"
+        <OptimizedImage
+          name="banner-1"
           alt="Iron Air preparando uma calça enquanto uma pessoa se arruma"
+          widths={[960, 1792]}
+          sizes="100vw"
+          width={1792}
+          height={750}
         />
       </section>
       <section className="story-ready">
-        <img
-          src="/images/story/banner-2.png"
+        <OptimizedImage
+          name="banner-2"
           alt="Camisa branca pronta para usar"
+          widths={[960, 1792]}
+          sizes="100vw"
+          width={1792}
+          height={750}
         />
         <div className="story-ready-copy">
           <h2>
@@ -753,7 +861,7 @@ export default function OfferLanding({ data }) {
         </div>
       </section>
 
-      <section className="action-videos-section">
+      <section className="action-videos-section" ref={actionVideosSection}>
         <div className="action-videos-heading">
           <h2>Veja o Iron Air em ação</h2>
           <p>Vídeos rápidos mostrando o produto no dia a dia.</p>
@@ -785,12 +893,16 @@ export default function OfferLanding({ data }) {
                 }}
               >
                 <video
-                  src={src}
+                  src={
+                    actionVideosReady && index === activeActionVideo
+                      ? src
+                      : undefined
+                  }
                   poster={poster}
                   playsInline
                   loop
                   muted
-                  preload={index === activeActionVideo ? "auto" : "metadata"}
+                  preload="none"
                   aria-label={`Iron Air em ação — vídeo ${index + 1}`}
                 />
               </article>
@@ -825,16 +937,24 @@ export default function OfferLanding({ data }) {
             aria-label="Comparação visual entre ferro tradicional e Iron Air"
           >
             <figure>
-              <img
-                src="/images/comparison/traditional-iron.png"
+              <OptimizedImage
+                name="traditional-iron"
                 alt="Ferro tradicional"
+                widths={[400, 800]}
+                sizes="(max-width: 800px) 42vw, 230px"
+                width={1000}
+                height={1000}
               />
               <figcaption>Ferro tradicional</figcaption>
             </figure>
             <figure>
-              <img
-                src="/images/hero/iron-air-shirt.png"
+              <OptimizedImage
+                name="iron-air-shirt"
                 alt="Iron Air com camisa"
+                widths={[500, 1000]}
+                sizes="(max-width: 800px) 48vw, 350px"
+                width={1000}
+                height={1000}
               />
               <figcaption>Iron Air</figcaption>
             </figure>
@@ -977,7 +1097,14 @@ export default function OfferLanding({ data }) {
             <div className="versus">VS.</div>
             <article className="method-card iron-air">
               <div className="method-heading">
-                <img src="/images/hero/iron-air-shirt.png" alt="" />
+                <OptimizedImage
+                  name="iron-air-shirt"
+                  alt=""
+                  widths={[500, 1000]}
+                  sizes="220px"
+                  width={1000}
+                  height={1000}
+                />
                 <div>
                   <small>TECNOLOGIA MÃOS LIVRES</small>
                   <h3>Iron Air</h3>
@@ -1223,7 +1350,14 @@ export default function OfferLanding({ data }) {
       <section className="offer-section offer-box" id="comprar">
         <div className="purchase-media">
           <div className="purchase-main-image">
-            <img src={purchaseImage} alt={product.title} />
+            <img
+              src={purchaseImage}
+              alt={product.title}
+              width="1000"
+              height="1000"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
           {galleryImages.length > 1 ? (
             <div className="purchase-gallery" aria-label="Galeria do produto">
@@ -1235,7 +1369,14 @@ export default function OfferLanding({ data }) {
                   onClick={() => setPurchaseImage(image)}
                   aria-label={`Ver imagem ${index + 1} de ${product.title}`}
                 >
-                  <img src={image} alt="" />
+                  <img
+                    src={image}
+                    alt=""
+                    width="160"
+                    height="160"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </button>
               ))}
             </div>
@@ -1291,36 +1432,36 @@ export default function OfferLanding({ data }) {
         <div className="faq-list">
           {[
             [
-              "O Iron Air passa a roupa?",
-              "O produto seca e ajuda a reduzir amassados e modelar peças compatíveis. O resultado depende do tecido e do ajuste da roupa.",
+              "O Iron Air funciona com todo tipo de tecido?",
+              "Sim. O controle inteligente de temperatura se ajusta automaticamente e funciona com algodão, poliéster, seda, lã, malha e a maior parte dos tecidos do dia a dia.",
             ],
             [
-              "Ele gera pressão na roupa?",
-              "O balão infla e ajuda a manter a peça esticada durante o fluxo de ar quente.",
+              "Quanto tempo leva para passar uma peça?",
+              "A maioria das camisas e calças fica pronta em 6 a 12 minutos. O diferencial é que você não precisa acompanhar o processo.",
             ],
             [
-              "Quais peças podem ser usadas?",
-              "A documentação oficial cita camisas, camisetas, polos e calças, seguindo as orientações de ajuste e temperatura.",
+              "Qual a voltagem?",
+              "Temos a opção de 127V (1250W) e 220V (1400W).",
             ],
             [
-              "Quanto tempo leva?",
-              "O tempo varia conforme tecido, umidade e peça. Ajuste o ciclo seguindo as instruções do produto.",
+              "Como armazenar quando não estiver usando?",
+              "Esvazie o balão, dobre o suporte e guarde em armário ou gaveta maior. O aparelho pesa cerca de 2,3kg e ocupa pouco espaço.",
             ],
             [
-              "Tem 127V e 220V?",
-              "Sim. Selecione a voltagem correta antes de continuar para o checkout.",
+              "Preciso colocar a roupa seca ou molhada?",
+              "O ideal é utilizar a roupa levemente úmida. Você pode colocá-la diretamente após a lavagem ou borrifar um pouco de água antes de iniciar o processo.",
             ],
             [
-              "Qual é a garantia?",
-              "A condição e o prazo comercial precisam ser confirmados pela Iron Air antes da publicação de uma resposta definitiva.",
+              "Consome muita energia?",
+              "Não. O Iron Air possui eficiência energética Classe A, garantindo um consumo otimizado mesmo com alta performance.",
             ],
             [
-              "Como funciona o envio?",
-              "O CEP e as opções disponíveis são consultados no checkout.",
+              "Serve para qualquer tamanho?",
+              "Sim. O balão ajustável atende roupas até o tamanho 3XL. Ele possui zíperes laterais que permitem aumentar ou diminuir o ajuste conforme a peça.",
             ],
             [
-              "É seguro?",
-              "Use a tensão correta e siga o manual. O produto possui as proteções descritas na seção de segurança acima.",
+              "Faz barulho?",
+              "O funcionamento gera um leve ruído semelhante a um ar condicionado, mas nada que incomode no ambiente.",
             ],
           ].map(([q, a]) => (
             <details key={q}>
@@ -1335,7 +1476,14 @@ export default function OfferLanding({ data }) {
         <div className="trust-footer-inner">
           <div className="trust-footer-main">
             <div className="trust-footer-brand">
-              <img src="/images/hero/iron-air-logo.png" alt="Iron Air" />
+              <OptimizedImage
+                name="iron-air-logo"
+                alt="Iron Air"
+                widths={[400, 800]}
+                sizes="150px"
+                width={2172}
+                height={724}
+              />
               <p>
                 Elevando o padrão de cuidado com roupas através de tecnologia,
                 praticidade e confiança.
