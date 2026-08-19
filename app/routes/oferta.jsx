@@ -1432,6 +1432,26 @@ export default function OfferLanding({ data }) {
           <BuyButton label="COMPRAR AGORA" checkout />
           <PaymentMethods compact />
         </div>
+        <div className="purchase-details">
+          <details>
+            <summary>DESCRIÇÃO</summary>
+            <div
+              className="purchase-details-content"
+              dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+            />
+          </details>
+          {product.specificationsHtml ? (
+            <details>
+              <summary>ESPECIFICAÇÕES TÉCNICAS</summary>
+              <div
+                className="purchase-details-content"
+                dangerouslySetInnerHTML={{
+                  __html: product.specificationsHtml,
+                }}
+              />
+            </details>
+          ) : null}
+        </div>
       </section>
 
       <section className="offer-section faq" id="perguntas">
