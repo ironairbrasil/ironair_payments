@@ -95,6 +95,11 @@ function money(value) {
   }).format(value || 0);
 }
 
+const IRON_AIR_POWER_BY_VOLTAGE = Object.freeze({
+  "127V": "1250W",
+  "220V": "1400W",
+});
+
 const HERO_PRODUCTS = [
   {
     key: "shirt",
@@ -1279,7 +1284,9 @@ export default function OfferLanding({ data }) {
               Estimativas calculadas a partir da quantidade de peças
               selecionada, tempo médio configurado para cada método e potência
               nominal dos aparelhos. Para o Iron Air, usamos{" "}
-              {selected?.title === "220V" ? "1400W" : "1250W"}; para o ferro
+              {IRON_AIR_POWER_BY_VOLTAGE[selected?.title] ||
+                IRON_AIR_POWER_BY_VOLTAGE["127V"]}
+              ; para o ferro
               tradicional, a referência editável é 1200W. O consumo e o tempo
               reais podem variar conforme tecido, umidade, configuração
               utilizada, aparelho comparado e hábitos do usuário.
@@ -1468,7 +1475,7 @@ export default function OfferLanding({ data }) {
             ],
             [
               "Qual a voltagem?",
-              "Temos a opção de 127V (1250W) e 220V (1400W).",
+              `Temos a opção de 127V (${IRON_AIR_POWER_BY_VOLTAGE["127V"]}) e 220V (${IRON_AIR_POWER_BY_VOLTAGE["220V"]}).`,
             ],
             [
               "Como armazenar quando não estiver usando?",
