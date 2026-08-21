@@ -821,6 +821,11 @@
   color: #126640;
   font-weight: inherit;
 }
+.side-by-side-cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
 
 @media (max-width: 800px) {
   .side-by-side-comparison {
@@ -902,6 +907,9 @@
     margin-top: 48px;
     font-size: 30px;
     line-height: 1.06;
+  }
+  .side-by-side-cta {
+    margin-top: 24px;
   }
 }
 
@@ -2319,6 +2327,13 @@
   background-position: center;
   background-repeat: no-repeat;
   padding-top: 30px;
+}
+.hero-discovery-cta {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 28px 20px 32px;
+  background: #f5f4f2;
 }
 .launch-copy {
   position: relative;

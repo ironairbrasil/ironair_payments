@@ -659,6 +659,10 @@ export default function OfferLanding({ data }) {
         </div>
       </section>
 
+      <div className="hero-discovery-cta">
+        <BuyButton label="CONHECER O IRON AIR" />
+      </div>
+
       <section className="launch-features" aria-label="Destaques do Iron Air">
         <article>
           <Wind />
@@ -1003,6 +1007,9 @@ export default function OfferLanding({ data }) {
             <br />
             <strong>É outra forma de passar roupa.</strong>
           </p>
+          <div className="side-by-side-cta">
+            <BuyButton label="CONHECER O IRON AIR" />
+          </div>
         </div>
       </section>
 
