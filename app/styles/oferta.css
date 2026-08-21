@@ -2335,6 +2335,10 @@
   padding: 28px 20px 32px;
   background: #f5f4f2;
 }
+.hero-discovery-cta .offer-cta svg,
+.side-by-side-cta .offer-cta svg {
+  display: none;
+}
 .launch-copy {
   position: relative;
   z-index: 5;
