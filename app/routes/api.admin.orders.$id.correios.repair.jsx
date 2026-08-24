@@ -4,7 +4,7 @@ import { getAsaasConfig } from "../config/asaas.server";
 import prisma from "../db.server";
 import {
   cancelPrePostage,
-  getPrePostage,
+  getPrePostageByTrackingCode,
 } from "../services/correios.server";
 import { createCorreiosPrePostageForOrder } from "../services/correios-order.server";
 
@@ -53,7 +53,7 @@ export async function loader({ request, params }) {
 
   try {
     const order = await loadOrder(params);
-    const correios = await getPrePostage(order.correiosPrePostageId);
+    const correios = await getPrePostageByTrackingCode(order.correiosTrackingCode);
     return Response.json({
       success: true,
       orderId: order.id,
@@ -81,7 +81,7 @@ export async function action({ request, params }) {
 
   try {
     const order = await loadOrder(params);
-    const before = await getPrePostage(order.correiosPrePostageId);
+    const before = await getPrePostageByTrackingCode(order.correiosTrackingCode);
     const beforeStatus = normalizedStatus(before);
 
     if (!CANCELLABLE_STATUSES.has(beforeStatus)) {
@@ -96,8 +96,8 @@ export async function action({ request, params }) {
     }
 
     await cancelPrePostage(order.correiosPrePostageId);
-    const cancellationConfirmation = await getPrePostage(
-      order.correiosPrePostageId,
+    const cancellationConfirmation = await getPrePostageByTrackingCode(
+      order.correiosTrackingCode,
     );
     const cancellationStatus = normalizedStatus(cancellationConfirmation);
     if (!CANCELLED_STATUSES.has(cancellationStatus)) {

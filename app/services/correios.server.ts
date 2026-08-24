@@ -1213,6 +1213,24 @@ export async function getPrePostage(
   };
 }
 
+export async function getPrePostageByTrackingCode(
+  trackingCode: unknown,
+): Promise<CorreiosPrePostageResult> {
+  const config = getPostageCorreiosConfig();
+  const code = normalizeTrackingCode(trackingCode);
+  const basePath =
+    process.env.CORREIOS_PREPOSTAGE_PATH || "/prepostagem/v1/prepostagens";
+  const path = `${basePath}?codigoObjeto=${encodeURIComponent(code)}&size=10`;
+  const data = await requestCorreios("postage", config, path, { method: "GET" });
+  const result = normalizeCorreiosResponse(data);
+
+  if (result.trackingCode !== code) {
+    throw new Error("Correios query did not return the requested tracking code.");
+  }
+
+  return { success: true, ...result };
+}
+
 export async function cancelPrePostage(
   prePostageId: unknown,
 ): Promise<CorreiosPrePostageResult> {
