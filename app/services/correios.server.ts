@@ -70,6 +70,8 @@ type CorreiosPackage = {
 };
 
 type CorreiosQuoteItem = {
+  description?: unknown;
+  value?: unknown;
   quantity?: unknown;
   weight?: unknown;
   weightKg?: unknown;
@@ -133,6 +135,7 @@ type CorreiosPrePostageInput = {
   serviceCode: unknown;
   service?: unknown;
   items?: CorreiosQuoteItem[];
+  nfe?: { accessKey: string | null; sent: boolean; reason: string | null };
 };
 
 export type CorreiosPrePostageResult = {
@@ -817,6 +820,28 @@ function buildPrePostagePayload(
   const serviceCode = requirePrePostageText(input.serviceCode, "service code");
   const sender = getSenderAddress(config);
   const recipient = input.customer;
+  const declarationItems = (input.items || []).map((item) => {
+    const value = parsePositiveDimension(item.value);
+
+    if (!value) {
+      throw new Error("Pre-postage content declaration requires real paid order items.");
+    }
+
+    return {
+      description: requirePrePostageText(item.description, "item description"),
+      quantity: normalizeQuantity(item.quantity),
+      value,
+      weightGrams: Math.ceil(
+        (parseWeightKg(item) || FALLBACK_PACKAGE.weightKg) * 1000,
+      ),
+    };
+  });
+
+  if (!declarationItems.length) {
+    throw new Error("Pre-postage content declaration requires real paid order items.");
+  }
+
+  const nfeAccessKey = input.nfe?.sent ? input.nfe.accessKey : null;
 
   return {
     codigoServico: serviceCode,
@@ -839,28 +864,25 @@ function buildPrePostagePayload(
     comprimentoInformado: String(shippingPackage.lengthCm),
     larguraInformada: String(shippingPackage.widthCm),
     alturaInformada: String(shippingPackage.heightCm),
-    tipoDocumento: "DC",
+    tipoDocumento: nfeAccessKey ? "NFE" : "DC",
+    ...(nfeAccessKey ? { chaveNFe: nfeAccessKey } : { emiteDCe: "S" }),
     precoPostagem: 0,
     modalidadePagamento: "2",
     logisticaReversa: "N",
     solicitarColeta: "N",
     cienteObjetoNaoProibido: "1",
     listaServicoAdicional: [],
-    declaracaoConteudo: [
-      {
-        descricao: "Borrifador pressurizado Iron Air",
-        quantidade: 1,
-        valor: 10,
-        pesoLiquidoGrama: shippingPackage.weightGrams,
-      },
-    ],
-    itensDeclaracaoConteudo: [
-      {
-        conteudo: "Borrifador pressurizado Iron Air",
-        quantidade: "1",
-        valor: "10.00",
-      },
-    ],
+    declaracaoConteudo: declarationItems.map((item) => ({
+      descricao: item.description,
+      quantidade: item.quantity,
+      valor: item.value,
+      pesoLiquidoGrama: item.weightGrams,
+    })),
+    itensDeclaracaoConteudo: declarationItems.map((item) => ({
+      conteudo: item.description,
+      quantidade: String(item.quantity),
+      valor: item.value.toFixed(2),
+    })),
     observacao: `Iron Air checkout - ${String(input.service || serviceCode).trim()}`,
   };
 }
@@ -1146,6 +1168,17 @@ export async function createPrePostage(
       widthCm: shippingPackage.widthCm,
       heightCm: shippingPackage.heightCm,
     },
+    declaration: payload.declaracaoConteudo.map((item) => ({
+      product: item.descricao,
+      quantity: item.quantidade,
+      value: item.valor,
+    })),
+    declaredValue: payload.declaracaoConteudo.reduce(
+      (total, item) => total + item.valor * item.quantidade,
+      0,
+    ),
+    nfeSent: Boolean(input.nfe?.sent),
+    nfeNotSentReason: input.nfe?.sent ? null : input.nfe?.reason,
   });
 
   const data = await requestCorreios("postage", config, path, {

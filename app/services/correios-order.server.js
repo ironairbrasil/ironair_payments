@@ -6,8 +6,10 @@ import {
 import { mergeCorreiosResults } from "./correios-response.server";
 import {
   createShopifyFulfillmentWithTracking,
+  getShopifyOrderForCorreios,
   updateShopifyOrderCorreiosMetadata,
 } from "./shopify-order.server";
+import { buildCorreiosOrderData } from "./correios-order-data.server";
 
 const SHIPPING_STATUS = {
   AWAITING_LABEL: "AWAITING_LABEL",
@@ -15,36 +17,6 @@ const SHIPPING_STATUS = {
   PREPOSTED: "PREPOSTED",
   ERROR: "ERROR",
 };
-
-function maskValue(value) {
-  const text = String(value || "");
-
-  if (text.includes("@")) {
-    const [user, domain] = text.split("@");
-    return `${user.slice(0, 2)}***@${domain}`;
-  }
-
-  return text.length > 4 ? `${text.slice(0, 3)}***${text.slice(-2)}` : "***";
-}
-
-function sanitizeForLog(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeForLog(item));
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      ["email", "cpfCnpj", "phone", "mobilePhone"].includes(key)
-        ? maskValue(item)
-        : sanitizeForLog(item),
-    ]),
-  );
-}
 
 function normalizeAsaasAddress(customer = {}, mappedOrder = {}) {
   return {
@@ -284,12 +256,27 @@ export async function createCorreiosPrePostageForOrder(
   }
 
   const customer = buildCustomerForPrePostage(asaasCustomer, mappedOrder);
+  const shopifyOrder = await getShopifyOrderForCorreios(
+    mappedOrder.shopifyOrderId,
+  );
+  const orderData = buildCorreiosOrderData(shopifyOrder);
+  const declaredValue = orderData.items.reduce(
+    (total, item) => total + item.value * item.quantity,
+    0,
+  );
 
   console.log("[correios] Starting manual pre-postage.", {
     orderId: mappedOrder.id,
     shopifyOrder: mappedOrder.shopifyOrderName,
     service: mappedOrder.shippingService,
-    customer: sanitizeForLog(customer),
+    declaration: orderData.items.map(({ description, quantity, value }) => ({
+      product: description,
+      quantity,
+      value,
+    })),
+    declaredValue,
+    nfeSent: orderData.nfe.sent,
+    nfeNotSentReason: orderData.nfe.reason,
   });
 
   try {
@@ -297,7 +284,8 @@ export async function createCorreiosPrePostageForOrder(
       customer,
       service: mappedOrder.shippingService,
       serviceCode: mappedOrder.shippingServiceCode,
-      items: [{}],
+      items: orderData.items,
+      nfe: orderData.nfe,
     });
     if (!creationResult.prePostageId) {
       throw new Error("Correios response did not include idPrePostagem.");

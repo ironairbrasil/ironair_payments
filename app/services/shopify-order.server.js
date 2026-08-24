@@ -645,6 +645,52 @@ export async function updateShopifyOrderCorreiosMetadata(
   return updateCompletedShopifyOrderMetadata(orderId, { metafields });
 }
 
+export async function getShopifyOrderForCorreios(orderId) {
+  if (!orderId) {
+    throw new Error("Shopify order id is required for Correios pre-postage.");
+  }
+
+  const data = await shopifyGraphql(
+    `#graphql
+      query getOrderForCorreios($id: ID!) {
+        order(id: $id) {
+          id
+          name
+          customAttributes { key value }
+          metafields(first: 100) { nodes { namespace key value } }
+          lineItems(first: 100) {
+            nodes {
+              title
+              quantity
+              sku
+              originalUnitPriceSet { shopMoney { amount currencyCode } }
+              discountedTotalSet { shopMoney { amount currencyCode } }
+              variant {
+                sku
+                inventoryItem { measurement { weight { value unit } } }
+                product {
+                  title
+                  metafields(identifiers: [
+                    { namespace: "ironair_shipping", key: "length_cm" }
+                    { namespace: "ironair_shipping", key: "width_cm" }
+                    { namespace: "ironair_shipping", key: "height_cm" }
+                  ]) { key value }
+                }
+              }
+            }
+          }
+        }
+      }`,
+    { id: orderId },
+  );
+
+  if (!data.order) {
+    throw new Error(`Shopify order not found: ${orderId}.`);
+  }
+
+  return data.order;
+}
+
 export async function createShopifyFulfillmentWithTracking(
   orderId,
   trackingCode,
