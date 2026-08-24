@@ -16,15 +16,6 @@ const CANCELLABLE_STATUSES = new Set([
   "PENDENTE",
 ]);
 const CANCELLED_STATUSES = new Set(["CANCELADO", "CANCELLED"]);
-const QUERY_STATUSES = [
-  "POSTADO",
-  "PREPOSTADO",
-  "PREATENDIDO",
-  "PENDENTE",
-  "CANCELADO",
-  "EXPIRADO",
-  "ESTORNADO",
-];
 
 function getBearerToken(request) {
   const authorization = request.headers.get("authorization");
@@ -39,7 +30,15 @@ function isAuthorized(request) {
 }
 
 function normalizedStatus(result) {
-  return String(result?.status || "").trim().toUpperCase();
+  const status = String(result?.status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase();
+
+  if (status.startsWith("CANCELADO")) return "CANCELADO";
+  if (status.startsWith("PREPOSTADO")) return "PREPOSTADO";
+  return status;
 }
 
 function getStatusDetails(value, trackingCode) {
@@ -64,19 +63,7 @@ function getStatusDetails(value, trackingCode) {
 }
 
 async function getConfirmedCorreiosStatus(trackingCode) {
-  for (const status of QUERY_STATUSES) {
-    try {
-      return await getPrePostageByTrackingCode(trackingCode, status);
-    } catch (error) {
-      if (!String(error instanceof Error ? error.message : error).includes(
-        "did not return the requested tracking code",
-      )) {
-        throw error;
-      }
-    }
-  }
-
-  throw new Error("Correios did not return the tracking code in any known status.");
+  return getPrePostageByTrackingCode(trackingCode);
 }
 
 async function loadOrder(params) {

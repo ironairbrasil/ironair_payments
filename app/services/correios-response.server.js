@@ -55,11 +55,12 @@ export function normalizeCorreiosResponse(data) {
       "objeto",
     ]),
     status: findFirstValue(data, [
+      "descStatusAtual",
       "statusAtual",
       "statusPrePostagem",
       "situacao",
-      "status",
       "descricaoStatus",
+      "status",
     ]),
     labelUrl: findFirstValue(data, [
       "urlRotulo",
