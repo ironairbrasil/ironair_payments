@@ -81,7 +81,10 @@ function weightInGrams(weight) {
 }
 
 function metafieldNumber(product, key) {
-  const field = (product?.metafields || []).find((item) => item?.key === key);
+  const metafields = Array.isArray(product?.metafields)
+    ? product.metafields
+    : product?.metafields?.nodes || [];
+  const field = metafields.find((item) => item?.key === key);
   const value = Number(field?.value);
   return Number.isFinite(value) && value > 0 ? value : undefined;
 }

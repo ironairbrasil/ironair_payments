@@ -670,11 +670,9 @@ export async function getShopifyOrderForCorreios(orderId) {
                 inventoryItem { measurement { weight { value unit } } }
                 product {
                   title
-                  metafields(identifiers: [
-                    { namespace: "ironair_shipping", key: "length_cm" }
-                    { namespace: "ironair_shipping", key: "width_cm" }
-                    { namespace: "ironair_shipping", key: "height_cm" }
-                  ]) { key value }
+                  metafields(first: 10, namespace: "ironair_shipping") {
+                    nodes { key value }
+                  }
                 }
               }
             }
