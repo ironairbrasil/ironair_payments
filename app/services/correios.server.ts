@@ -1215,13 +1215,19 @@ export async function getPrePostage(
 
 export async function getPrePostageByTrackingCode(
   trackingCode: unknown,
+  expectedStatus?: unknown,
 ): Promise<CorreiosPrePostageResult> {
   const config = getPostageCorreiosConfig();
   const code = normalizeTrackingCode(trackingCode);
   const basePath =
     process.env.CORREIOS_PREPOSTAGE_PATH || "/prepostagem/v1/prepostagens";
   const queryPath = basePath.replace("/v1/prepostagens", "/v2/prepostagens");
-  const path = `${queryPath}?codigoObjeto=${encodeURIComponent(code)}&size=10`;
+  const status = expectedStatus
+    ? requirePrePostageText(expectedStatus, "pre-postage status").toUpperCase()
+    : null;
+  const path = `${queryPath}?codigoObjeto=${encodeURIComponent(code)}${
+    status ? `&status=${encodeURIComponent(status)}` : ""
+  }&size=10`;
   const data = await requestCorreios("postage", config, path, { method: "GET" });
   const result = normalizeCorreiosResponse(data);
 
@@ -1229,7 +1235,7 @@ export async function getPrePostageByTrackingCode(
     throw new Error("Correios query did not return the requested tracking code.");
   }
 
-  return { success: true, ...result };
+  return { success: true, ...result, ...(status ? { status } : {}) };
 }
 
 export async function cancelPrePostage(

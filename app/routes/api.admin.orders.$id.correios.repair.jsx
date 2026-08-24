@@ -16,6 +16,15 @@ const CANCELLABLE_STATUSES = new Set([
   "PENDENTE",
 ]);
 const CANCELLED_STATUSES = new Set(["CANCELADO", "CANCELLED"]);
+const QUERY_STATUSES = [
+  "POSTADO",
+  "PREPOSTADO",
+  "PREATENDIDO",
+  "PENDENTE",
+  "CANCELADO",
+  "EXPIRADO",
+  "ESTORNADO",
+];
 
 function getBearerToken(request) {
   const authorization = request.headers.get("authorization");
@@ -31,6 +40,22 @@ function isAuthorized(request) {
 
 function normalizedStatus(result) {
   return String(result?.status || "").trim().toUpperCase();
+}
+
+async function getConfirmedCorreiosStatus(trackingCode) {
+  for (const status of QUERY_STATUSES) {
+    try {
+      return await getPrePostageByTrackingCode(trackingCode, status);
+    } catch (error) {
+      if (!String(error instanceof Error ? error.message : error).includes(
+        "did not return the requested tracking code",
+      )) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Correios did not return the tracking code in any known status.");
 }
 
 async function loadOrder(params) {
@@ -53,7 +78,7 @@ export async function loader({ request, params }) {
 
   try {
     const order = await loadOrder(params);
-    const correios = await getPrePostageByTrackingCode(order.correiosTrackingCode);
+    const correios = await getConfirmedCorreiosStatus(order.correiosTrackingCode);
     return Response.json({
       success: true,
       orderId: order.id,
@@ -81,7 +106,7 @@ export async function action({ request, params }) {
 
   try {
     const order = await loadOrder(params);
-    const before = await getPrePostageByTrackingCode(order.correiosTrackingCode);
+    const before = await getConfirmedCorreiosStatus(order.correiosTrackingCode);
     const beforeStatus = normalizedStatus(before);
 
     if (!CANCELLABLE_STATUSES.has(beforeStatus)) {
@@ -98,6 +123,7 @@ export async function action({ request, params }) {
     await cancelPrePostage(order.correiosPrePostageId);
     const cancellationConfirmation = await getPrePostageByTrackingCode(
       order.correiosTrackingCode,
+      "CANCELADO",
     );
     const cancellationStatus = normalizedStatus(cancellationConfirmation);
     if (!CANCELLED_STATUSES.has(cancellationStatus)) {
