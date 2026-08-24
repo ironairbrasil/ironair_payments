@@ -1220,7 +1220,8 @@ export async function getPrePostageByTrackingCode(
   const code = normalizeTrackingCode(trackingCode);
   const basePath =
     process.env.CORREIOS_PREPOSTAGE_PATH || "/prepostagem/v1/prepostagens";
-  const path = `${basePath}?codigoObjeto=${encodeURIComponent(code)}&size=10`;
+  const queryPath = basePath.replace("/v1/prepostagens", "/v2/prepostagens");
+  const path = `${queryPath}?codigoObjeto=${encodeURIComponent(code)}&size=10`;
   const data = await requestCorreios("postage", config, path, { method: "GET" });
   const result = normalizeCorreiosResponse(data);
 
