@@ -55,6 +55,7 @@ export function normalizeCorreiosResponse(data) {
       "objeto",
     ]),
     status: findFirstValue(data, [
+      "statusAtual",
       "statusPrePostagem",
       "situacao",
       "status",

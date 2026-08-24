@@ -1199,6 +1199,34 @@ export async function createPrePostage(
   return result;
 }
 
+export async function getPrePostage(
+  prePostageId: unknown,
+): Promise<CorreiosPrePostageResult> {
+  const config = getPostageCorreiosConfig();
+  const id = requirePrePostageText(prePostageId, "pre-postage id");
+  const path = `${process.env.CORREIOS_PREPOSTAGE_PATH || "/prepostagem/v1/prepostagens"}/${encodeURIComponent(id)}`;
+  const data = await requestCorreios("postage", config, path, { method: "GET" });
+
+  return {
+    success: true,
+    ...normalizeCorreiosResponse(data),
+  };
+}
+
+export async function cancelPrePostage(
+  prePostageId: unknown,
+): Promise<CorreiosPrePostageResult> {
+  const config = getPostageCorreiosConfig();
+  const id = requirePrePostageText(prePostageId, "pre-postage id");
+  const path = `${process.env.CORREIOS_PREPOSTAGE_PATH || "/prepostagem/v1/prepostagens"}/${encodeURIComponent(id)}`;
+  const data = await requestCorreios("postage", config, path, { method: "DELETE" });
+
+  return {
+    success: true,
+    ...normalizeCorreiosResponse(data),
+  };
+}
+
 export async function generatePrePostageLabel(
   prePostageId: unknown,
   { type = "P" }: { type?: "P" | "R" } = {},
