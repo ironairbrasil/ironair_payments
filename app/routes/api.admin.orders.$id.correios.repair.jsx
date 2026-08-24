@@ -42,6 +42,27 @@ function normalizedStatus(result) {
   return String(result?.status || "").trim().toUpperCase();
 }
 
+function getStatusDetails(value, trackingCode) {
+  if (!value || typeof value !== "object") return null;
+  if (
+    !Array.isArray(value) &&
+    String(value.codigoObjeto || value.codigoRastreio || "") === trackingCode
+  ) {
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        ([key, item]) =>
+          /status|situacao|dataHoraStatus/i.test(key) &&
+          ["string", "number", "boolean"].includes(typeof item),
+      ),
+    );
+  }
+  for (const item of Array.isArray(value) ? value : Object.values(value)) {
+    const found = getStatusDetails(item, trackingCode);
+    if (found) return found;
+  }
+  return null;
+}
+
 async function getConfirmedCorreiosStatus(trackingCode) {
   for (const status of QUERY_STATUSES) {
     try {
@@ -86,6 +107,10 @@ export async function loader({ request, params }) {
       prePostageId: order.correiosPrePostageId,
       trackingCode: order.correiosTrackingCode,
       status: normalizedStatus(correios),
+      statusDetails: getStatusDetails(
+        correios.raw,
+        order.correiosTrackingCode,
+      ),
       cancellable: CANCELLABLE_STATUSES.has(normalizedStatus(correios)),
     });
   } catch (error) {
