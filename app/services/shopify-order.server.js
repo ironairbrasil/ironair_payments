@@ -753,7 +753,7 @@ export async function createShopifyFulfillmentWithTracking(
         lineItemsByFulfillmentOrder: fulfillableOrders.map((fulfillmentOrder) => ({
           fulfillmentOrderId: fulfillmentOrder.id,
         })),
-        notifyCustomer: false,
+        notifyCustomer: true,
         trackingInfo: {
           company: "Correios",
           number: trackingCode,
