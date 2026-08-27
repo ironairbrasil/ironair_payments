@@ -1389,6 +1389,91 @@
   font-size: var(--body-copy-size);
   line-height: 1.55;
 }
+.customer-moments {
+  padding-top: 34px;
+  overflow: hidden;
+  border-top: 0;
+}
+.customer-moments-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.customer-moments-heading .eyebrow {
+  margin-bottom: 10px;
+}
+.customer-moments-heading h2 {
+  max-width: 760px;
+  margin: 0;
+  font-size: var(--section-title-size);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+.customer-moments-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+.customer-moments-controls button {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid #d9d9dc;
+  border-radius: 50%;
+  color: #111;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+.customer-moments-controls button:hover {
+  color: #fff;
+  border-color: #004849;
+  background: #004849;
+  transform: translateY(-2px);
+}
+.customer-moments-controls svg {
+  width: 22px;
+  height: 22px;
+}
+.customer-moments-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 315px);
+  gap: 16px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.customer-moments-track::-webkit-scrollbar {
+  display: none;
+}
+.customer-moment {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: 26px;
+  background: #e8e8ea;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+  scroll-snap-align: start;
+}
+.customer-moment img,
+.customer-moment video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.customer-moments-hint {
+  display: none;
+}
 .guarantee {
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
@@ -2159,6 +2244,35 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
+  }
+  .customer-moments {
+    padding-top: 26px;
+  }
+  .customer-moments-heading {
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  .customer-moments-heading h2 {
+    font-size: clamp(38px, 11vw, 48px);
+  }
+  .customer-moments-controls {
+    display: none;
+  }
+  .customer-moments-track {
+    width: calc(100vw - 18px);
+    grid-auto-columns: min(76vw, 300px);
+    gap: 12px;
+    padding: 0 18px 20px 0;
+    scroll-padding-inline: 18px;
+  }
+  .customer-moment {
+    border-radius: 22px;
+  }
+  .customer-moments-hint {
+    display: block;
+    margin: 0;
+    color: #777;
+    font-size: 12px;
   }
   .faq-list {
     padding: 18px 22px;

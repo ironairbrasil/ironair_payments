@@ -141,6 +141,44 @@ const ACTION_VIDEOS = [
   ],
 ];
 
+const CUSTOMER_MOMENTS = [
+  {
+    type: "video",
+    src: "/media/depoimentos/snapinsta-1787846522982.mp4",
+    label: "Cliente mostrando o Iron Air",
+  },
+  {
+    type: "image",
+    src: "/media/depoimentos/snapinsta-1787846521349.jpg",
+    label: "Cliente recebendo seu Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/snapinsta-1787846520365.mp4",
+    label: "Depoimento em vídeo sobre o Iron Air",
+  },
+  {
+    type: "image",
+    src: "/media/depoimentos/snapinsta-1787846516349.jpg",
+    label: "Cliente com a caixa do Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/snapinsta-1787846518650.mp4",
+    label: "Experiência real com o Iron Air",
+  },
+  {
+    type: "image",
+    src: "/media/depoimentos/snapinsta-1787846522164.jpg",
+    label: "Pedidos do Iron Air prontos para envio",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/snapinsta-1787846439400.mp4",
+    label: "Cliente usando o Iron Air",
+  },
+];
+
 const SIDE_BY_SIDE_ROWS = [
   [Table2, "Tábua", "Necessária", "Não usa"],
   [UserRound, "Quem faz o trabalho", "Você", "O aparelho"],
@@ -375,6 +413,7 @@ export default function OfferLanding({ data }) {
   const discoveryCarousel = useRef(null);
   const actionVideosCarousel = useRef(null);
   const actionVideosSection = useRef(null);
+  const customerMomentsCarousel = useRef(null);
   const selected =
     product.variants.find((variant) => variant.id === variantId) ||
     firstAvailable;
@@ -1344,6 +1383,73 @@ export default function OfferLanding({ data }) {
             </article>
           ))}
         </div>
+      </section>
+
+      <section
+        className="offer-section customer-moments"
+        aria-labelledby="customer-moments-title"
+      >
+        <div className="customer-moments-heading">
+          <div>
+            <p className="eyebrow">DEPOIMENTOS REAIS</p>
+            <h2 id="customer-moments-title">Iron Air na casa dos clientes</h2>
+          </div>
+          <div className="customer-moments-controls">
+            <button
+              type="button"
+              aria-label="Ver depoimentos anteriores"
+              onClick={() =>
+                customerMomentsCarousel.current?.scrollBy({
+                  left: -360,
+                  behavior: "smooth",
+                })
+              }
+            >
+              <ChevronLeft aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label="Ver próximos depoimentos"
+              onClick={() =>
+                customerMomentsCarousel.current?.scrollBy({
+                  left: 360,
+                  behavior: "smooth",
+                })
+              }
+            >
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <div
+          className="customer-moments-track"
+          ref={customerMomentsCarousel}
+          aria-label="Fotos e vídeos de clientes"
+        >
+          {CUSTOMER_MOMENTS.map((moment) => (
+            <article className="customer-moment" key={moment.src}>
+              {moment.type === "video" ? (
+                <video
+                  src={moment.src}
+                  aria-label={moment.label}
+                  controls
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                <img
+                  src={moment.src}
+                  alt={moment.label}
+                  width="1290"
+                  height="2293"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+            </article>
+          ))}
+        </div>
+        <p className="customer-moments-hint">Deslize para ver mais</p>
       </section>
 
       <section
