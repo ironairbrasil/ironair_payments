@@ -630,7 +630,9 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
   );
 
   return (
-    <main className="offer-page">
+    <main
+      className={`offer-page ${hideLaunchHero ? "kit-offer-page" : ""}`}
+    >
       <header className="promo-bar">
         Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
         10% OFF
