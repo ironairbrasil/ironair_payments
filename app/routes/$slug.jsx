@@ -1,6 +1,19 @@
-import OfferLanding, { links, loader } from "./oferta";
+import OfferLanding, {
+  links,
+  loader as offerLoader,
+} from "./oferta";
 
-export { links, loader };
+const KIT_IRON_AIR_JALECO_SLUG = "kit-ironair+jaleco";
+
+export { links };
+
+export async function loader(args) {
+  if (args.params.slug !== KIT_IRON_AIR_JALECO_SLUG) {
+    throw new Response("Página não encontrada", { status: 404 });
+  }
+
+  return offerLoader(args);
+}
 
 export function meta() {
   return [
