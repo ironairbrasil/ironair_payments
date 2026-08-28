@@ -725,8 +725,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
           <div className="kit-vsl-copy">
             <p className="eyebrow">IRON AIR + AIRBAG PARA JALECO</p>
             <h1 id="kit-vsl-title">
-              Seu jaleco impecável todos os dias — sem perder tempo passando
-              roupa.
+              <span>Seu jaleco impecável todos os dias</span>
+              <span>sem perder tempo passando roupa.</span>
             </h1>
             <p>
               O kit que seca e desamassa seu jaleco automaticamente enquanto

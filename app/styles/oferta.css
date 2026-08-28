@@ -70,10 +70,14 @@ body:has(.offer-page) {
 }
 .kit-vsl-copy h1 {
   margin: 0;
-  font-size: clamp(44px, 6.4vw, 82px);
+  font-size: clamp(40px, 4.8vw, 64px);
   font-weight: 600;
-  line-height: 0.98;
+  line-height: 1.02;
   letter-spacing: -0.055em;
+}
+.kit-vsl-copy h1 span {
+  display: block;
+  white-space: nowrap;
 }
 .kit-vsl-copy > p:last-child {
   max-width: 760px;
@@ -148,7 +152,10 @@ body:has(.offer-page) {
     padding: 62px 18px 72px;
   }
   .kit-vsl-copy h1 {
-    font-size: clamp(42px, 12vw, 58px);
+    font-size: clamp(36px, 10.5vw, 48px);
+  }
+  .kit-vsl-copy h1 span {
+    white-space: normal;
   }
   .kit-vsl-copy > p:last-child {
     margin-top: 22px;
