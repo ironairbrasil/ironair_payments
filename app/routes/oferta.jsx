@@ -145,6 +145,7 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846522982.mp4",
+    poster: "/media/depoimentos/snapinsta-1787846522982-poster.png",
     label: "Cliente mostrando o Iron Air",
   },
   {
@@ -155,6 +156,7 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846520365.mp4",
+    poster: "/media/depoimentos/snapinsta-1787846520365-poster.png",
     label: "Depoimento em vídeo sobre o Iron Air",
   },
   {
@@ -165,6 +167,7 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846518650.mp4",
+    poster: "/media/depoimentos/snapinsta-1787846518650-poster.png",
     label: "Experiência real com o Iron Air",
   },
   {
@@ -175,6 +178,7 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846439400.mp4",
+    poster: "/media/depoimentos/snapinsta-1787846439400-poster.png",
     label: "Cliente usando o Iron Air",
   },
 ];
@@ -1431,6 +1435,7 @@ export default function OfferLanding({ data }) {
               {moment.type === "video" ? (
                 <video
                   src={moment.src}
+                  poster={moment.poster}
                   aria-label={moment.label}
                   controls
                   playsInline
