@@ -397,6 +397,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
   const loaderData = useLoaderData();
   const { product, payOrigin } = data || loaderData;
   const location = useLocation();
+  const shouldHideLaunchHero =
+    hideLaunchHero || location.pathname === "/kit-ironair+jaleco";
   const firstAvailable =
     product.variants.find((variant) => variant.available) ||
     product.variants[0];
@@ -631,13 +633,13 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
 
   return (
     <main
-      className={`offer-page ${hideLaunchHero ? "kit-offer-page" : ""}`}
+      className={`offer-page ${shouldHideLaunchHero ? "kit-offer-page" : ""}`}
     >
       <header className="promo-bar">
         Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
         10% OFF
       </header>
-      {!hideLaunchHero ? (
+      {!shouldHideLaunchHero ? (
         <section className="launch-hero" aria-labelledby="launch-title">
           <div className="launch-copy">
             <span>LANÇAMENTO</span>
@@ -710,7 +712,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
         </section>
       ) : null}
 
-      {!hideLaunchHero ? (
+      {!shouldHideLaunchHero ? (
         <div className="hero-discovery-cta">
           <BuyButton label="CONHECER O IRON AIR" />
         </div>
