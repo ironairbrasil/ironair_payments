@@ -393,7 +393,7 @@ function AnimatedNumber({ value, digits = 0 }) {
   );
 }
 
-export default function OfferLanding({ data }) {
+export default function OfferLanding({ data, hideLaunchHero = false }) {
   const loaderData = useLoaderData();
   const { product, payOrigin } = data || loaderData;
   const location = useLocation();
@@ -635,76 +635,84 @@ export default function OfferLanding({ data }) {
         Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
         10% OFF
       </header>
-      <section className="launch-hero" aria-labelledby="launch-title">
-        <div className="launch-copy">
-          <span>LANÇAMENTO</span>
-          <h1 id="launch-title">
-            <OptimizedImage
-              className="launch-logo"
-              name="iron-air-logo"
-              alt="Iron Air"
-              widths={[400, 800]}
-              sizes="(max-width: 800px) 252px, 434px"
-              width={2172}
-              height={724}
-              loading="eager"
-            />
-          </h1>
-          <p>O jeito de passar roupas acaba de mudar.</p>
-          <strong>Sem ferro. Sem esforço. Mais tempo para você.</strong>
-        </div>
-        <div className="launch-products" aria-live="polite">
-          {HERO_PRODUCTS.map((item, index) => {
-            const offset =
-              (index - heroSlide + HERO_PRODUCTS.length) % HERO_PRODUCTS.length;
-            const position =
-              offset === 0 ? "active" : offset === 1 ? "next" : "prev";
-            const left =
-              position === "active"
-                ? "50%"
-                : position === "next"
-                  ? "calc(50% + var(--carousel-gap))"
-                  : "calc(50% - var(--carousel-gap))";
-            const scale = position === "active" ? 1 : 0.72;
-            return (
+      {!hideLaunchHero ? (
+        <section className="launch-hero" aria-labelledby="launch-title">
+          <div className="launch-copy">
+            <span>LANÇAMENTO</span>
+            <h1 id="launch-title">
               <OptimizedImage
-                key={item.key}
-                className={`launch-product launch-product-${item.key} is-${position}`}
-                classOnImage
-                style={{ left, transform: `translateX(-50%) scale(${scale})` }}
-                name={item.image}
-                alt={position === "active" ? item.label : ""}
-                widths={[500, 1000]}
-                sizes="(max-width: 800px) 62vw, 500px"
-                width={1000}
-                height={1000}
-                loading={item.key === "shirt" ? "eager" : "lazy"}
-                fetchPriority={item.key === "shirt" ? "high" : "low"}
+                className="launch-logo"
+                name="iron-air-logo"
+                alt="Iron Air"
+                widths={[400, 800]}
+                sizes="(max-width: 800px) 252px, 434px"
+                width={2172}
+                height={724}
+                loading="eager"
               />
-            );
-          })}
-          <button
-            className="launch-arrow launch-arrow-prev"
-            type="button"
-            aria-label="Produto anterior"
-            onClick={() => moveHero(-1)}
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <button
-            className="launch-arrow launch-arrow-next"
-            type="button"
-            aria-label="Próximo produto"
-            onClick={() => moveHero(1)}
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </section>
+            </h1>
+            <p>O jeito de passar roupas acaba de mudar.</p>
+            <strong>Sem ferro. Sem esforço. Mais tempo para você.</strong>
+          </div>
+          <div className="launch-products" aria-live="polite">
+            {HERO_PRODUCTS.map((item, index) => {
+              const offset =
+                (index - heroSlide + HERO_PRODUCTS.length) %
+                HERO_PRODUCTS.length;
+              const position =
+                offset === 0 ? "active" : offset === 1 ? "next" : "prev";
+              const left =
+                position === "active"
+                  ? "50%"
+                  : position === "next"
+                    ? "calc(50% + var(--carousel-gap))"
+                    : "calc(50% - var(--carousel-gap))";
+              const scale = position === "active" ? 1 : 0.72;
+              return (
+                <OptimizedImage
+                  key={item.key}
+                  className={`launch-product launch-product-${item.key} is-${position}`}
+                  classOnImage
+                  style={{
+                    left,
+                    transform: `translateX(-50%) scale(${scale})`,
+                  }}
+                  name={item.image}
+                  alt={position === "active" ? item.label : ""}
+                  widths={[500, 1000]}
+                  sizes="(max-width: 800px) 62vw, 500px"
+                  width={1000}
+                  height={1000}
+                  loading={item.key === "shirt" ? "eager" : "lazy"}
+                  fetchPriority={item.key === "shirt" ? "high" : "low"}
+                />
+              );
+            })}
+            <button
+              className="launch-arrow launch-arrow-prev"
+              type="button"
+              aria-label="Produto anterior"
+              onClick={() => moveHero(-1)}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              className="launch-arrow launch-arrow-next"
+              type="button"
+              aria-label="Próximo produto"
+              onClick={() => moveHero(1)}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </section>
+      ) : null}
 
-      <div className="hero-discovery-cta">
-        <BuyButton label="CONHECER O IRON AIR" />
-      </div>
+      {!hideLaunchHero ? (
+        <div className="hero-discovery-cta">
+          <BuyButton label="CONHECER O IRON AIR" />
+        </div>
+      ) : null}
 
       <section className="launch-features" aria-label="Destaques do Iron Air">
         <article>
@@ -1336,10 +1344,9 @@ export default function OfferLanding({ data }) {
               nominal dos aparelhos. Para o Iron Air, usamos{" "}
               {IRON_AIR_POWER_BY_VOLTAGE[selected?.title] ||
                 IRON_AIR_POWER_BY_VOLTAGE["127V"]}
-              ; para o ferro
-              tradicional, a referência editável é 1200W. O consumo e o tempo
-              reais podem variar conforme tecido, umidade, configuração
-              utilizada, aparelho comparado e hábitos do usuário.
+              ; para o ferro tradicional, a referência editável é 1200W. O
+              consumo e o tempo reais podem variar conforme tecido, umidade,
+              configuração utilizada, aparelho comparado e hábitos do usuário.
             </p>
           </details>
         </div>
