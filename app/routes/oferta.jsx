@@ -183,6 +183,8 @@ const CUSTOMER_MOMENTS = [
   },
 ];
 
+const KIT_VSL_YOUTUBE_ID = "";
+
 const SIDE_BY_SIDE_ROWS = [
   [Table2, "Tábua", "Necessária", "Não usa"],
   [UserRound, "Quem faz o trabalho", "Você", "O aparelho"],
@@ -716,6 +718,51 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
         <div className="hero-discovery-cta">
           <BuyButton label="CONHECER O IRON AIR" />
         </div>
+      ) : null}
+
+      {shouldHideLaunchHero ? (
+        <section className="kit-vsl-hero" aria-labelledby="kit-vsl-title">
+          <div className="kit-vsl-copy">
+            <p className="eyebrow">IRON AIR + AIRBAG PARA JALECO</p>
+            <h1 id="kit-vsl-title">
+              Seu jaleco impecável todos os dias — sem perder tempo passando
+              roupa.
+            </h1>
+            <p>
+              O kit que seca e desamassa seu jaleco automaticamente enquanto
+              você cuida do que realmente importa: seus pacientes, sua rotina e
+              o seu tempo.
+            </p>
+          </div>
+
+          <div className="kit-vsl-player">
+            {KIT_VSL_YOUTUBE_ID ? (
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${KIT_VSL_YOUTUBE_ID}?rel=0`}
+                title="Conheça o Kit Iron Air + Airbag para jaleco"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <div
+                className="kit-vsl-placeholder"
+                role="img"
+                aria-label="Vídeo em breve"
+              >
+                <span className="kit-vsl-play" aria-hidden="true">
+                  ▶
+                </span>
+                <strong>Apresentação em vídeo em breve</strong>
+                <small>O player do YouTube já está preparado.</small>
+              </div>
+            )}
+          </div>
+
+          <BuyButton label="QUERO MEU KIT IRON AIR" />
+          <small className="kit-vsl-note">
+            Escolha a voltagem e finalize sua compra com segurança.
+          </small>
+        </section>
       ) : null}
 
       <section className="launch-features" aria-label="Destaques do Iron Air">
