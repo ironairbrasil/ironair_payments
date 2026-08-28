@@ -8,8 +8,7 @@ function storeOrigin() {
   );
 }
 
-export async function getIronAirPublicProduct() {
-  const handle = process.env.IRON_AIR_PRODUCT_HANDLE || DEFAULT_PRODUCT_HANDLE;
+export async function getShopifyPublicProduct(handle) {
   const response = await fetch(
     `${storeOrigin()}/products/${encodeURIComponent(handle)}.js`,
     {
@@ -19,7 +18,7 @@ export async function getIronAirPublicProduct() {
 
   if (!response.ok) {
     throw new Error(
-      `Não foi possível carregar o Iron Air da Shopify (${response.status}).`,
+      `Não foi possível carregar o produto da Shopify (${response.status}).`,
     );
   }
 
@@ -61,6 +60,11 @@ export async function getIronAirPublicProduct() {
       inventoryManagement: variant.inventory_management || null,
     })),
   };
+}
+
+export async function getIronAirPublicProduct() {
+  const handle = process.env.IRON_AIR_PRODUCT_HANDLE || DEFAULT_PRODUCT_HANDLE;
+  return getShopifyPublicProduct(handle);
 }
 
 export function publicProductToCheckoutItem(product, variant) {

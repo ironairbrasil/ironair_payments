@@ -1,9 +1,10 @@
-import OfferLanding, {
-  links,
-  loader as offerLoader,
-} from "./oferta";
+import process from "node:process";
+
+import { getShopifyPublicProduct } from "../services/ironair-product.server";
+import OfferLanding, { links } from "./oferta";
 
 const KIT_IRON_AIR_JALECO_SLUG = "kit-ironair+jaleco";
+const KIT_IRON_AIR_JALECO_HANDLE = "kit-jaleco-iron-air";
 
 export { links };
 
@@ -12,7 +13,10 @@ export async function loader(args) {
     throw new Response("Página não encontrada", { status: 404 });
   }
 
-  return offerLoader(args);
+  return {
+    product: await getShopifyPublicProduct(KIT_IRON_AIR_JALECO_HANDLE),
+    payOrigin: process.env.PAYMENTS_PUBLIC_URL || "https://pay.ironair.com.br",
+  };
 }
 
 export function meta() {
