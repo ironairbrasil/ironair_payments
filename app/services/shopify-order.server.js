@@ -1408,28 +1408,6 @@ export async function completeDraftOrderForAsaasPayment(
       });
     }
 
-    if (mappedOrder.shopifyOrderId) {
-      await updateCompletedShopifyOrderMetadata(mappedOrder.shopifyOrderId, {
-        customAttributes: buildCustomAttributes({
-          externalReference: mappedOrder.externalReference,
-          customer: asaasCustomer || {},
-          paidAt: mappedOrder.paidAt || new Date().toISOString(),
-          paymentStatus: getPaymentLabel(asaasPayment),
-          shippingOption,
-          attribution: mappedOrder.attribution,
-        }),
-        metafields: buildAsaasMetafields({
-          asaasPaymentId: asaasPaymentId || mappedOrder.asaasPaymentId,
-          asaasCheckoutId: asaasCheckoutId || mappedOrder.asaasCheckoutId,
-          asaasCustomerId: asaasCustomerId || mappedOrder.asaasCustomerId,
-          invoiceUrl: mappedOrder.invoiceUrl,
-          externalReference: mappedOrder.externalReference,
-          asaasPayment,
-          shippingOption,
-        }),
-      });
-    }
-
     return mappedOrder;
   }
 

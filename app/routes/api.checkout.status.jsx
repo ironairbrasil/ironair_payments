@@ -46,7 +46,10 @@ export async function loader({ request }) {
         externalReference: payment.externalReference || externalReference,
       });
 
-      if (completedOrder) {
+      if (
+        completedOrder &&
+        [null, "AWAITING_LABEL"].includes(completedOrder.shippingStatus)
+      ) {
         await createCorreiosPrePostageIfEligible(completedOrder, {
           customer: asaasCustomer,
         }).catch((error) => {

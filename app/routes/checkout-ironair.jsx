@@ -62,7 +62,7 @@ const STORE_ORIGIN = "https://ironair.com.br";
 const PIX_COUPON_CODE = "PIX10";
 const MAX_CARD_INSTALLMENTS = 12;
 export const PREORDER_SHIPPING_ESTIMATE =
-  "Envio previsto em até 30 dias, após a chegada e liberação do produto no Brasil.";
+  "Envio previsto em até 5 dias, após a chegada e liberação do produto no Brasil.";
 
 export function links() {
   return [{ rel: "stylesheet", href: checkoutStyles }];
@@ -493,7 +493,6 @@ export default function IronAirCheckout() {
   const [pixStatus, setPixStatus] = useState("");
   const [cardPayment, setCardPayment] = useState(null);
   const [cardStatus, setCardStatus] = useState("");
-  const [shippingOptions, setShippingOptions] = useState([]);
   const [selectedShippingOption, setSelectedShippingOption] = useState(null);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState("");
@@ -508,10 +507,6 @@ export default function IronAirCheckout() {
     [items],
   );
   const shippingTotal = Number(selectedShippingOption?.price) || 0;
-  const selectedShippingOriginalTotal = Number(
-    selectedShippingOption?.originalPrice ?? selectedShippingOption?.price ?? 0,
-  );
-  const selectedShippingIsFree = Boolean(selectedShippingOption?.isFreeShipping);
   const normalizedCouponCode = normalizeCouponCode(couponCode);
   const couponIsPix10 = normalizedCouponCode === PIX_COUPON_CODE;
   const couponError =
@@ -546,7 +541,6 @@ export default function IronAirCheckout() {
 
     if (name === "postalCode" && !preorder) {
       setSelectedShippingOption(null);
-      setShippingOptions([]);
       setShippingError("");
       setShippingQuotedCep("");
     }
@@ -644,7 +638,7 @@ export default function IronAirCheckout() {
     if (!form.city.trim()) nextErrors.city = "Informe a cidade.";
     if (!/^[A-Z]{2}$/.test(form.provinceCode)) nextErrors.provinceCode = "UF inválida.";
     if (!preorder && !selectedShippingOption) {
-      nextErrors.shipping = "Selecione uma opção de frete.";
+      nextErrors.shipping = "Aguarde o cálculo do frete grátis.";
     }
     if (couponError) nextErrors.coupon = couponError;
 
@@ -806,7 +800,7 @@ export default function IronAirCheckout() {
       return undefined;
     }
 
-    if (destinationCep === shippingQuotedCep && shippingOptions.length) {
+    if (destinationCep === shippingQuotedCep && selectedShippingOption) {
       return undefined;
     }
 
@@ -817,7 +811,6 @@ export default function IronAirCheckout() {
     async function quoteShipping() {
       setShippingLoading(true);
       setShippingError("");
-      setShippingOptions([]);
       setSelectedShippingOption(null);
 
       try {
@@ -839,22 +832,26 @@ export default function IronAirCheckout() {
           throw new Error(data.error || "Não foi possível cotar o frete.");
         }
 
-        const options = Array.isArray(data.options)
-          ? data.options
-              .filter((option) => Number(option.price) >= 0)
-              .sort((first, second) => Number(first.price) - Number(second.price))
-          : [];
+        const sedexOption = Array.isArray(data.options)
+          ? data.options.find(
+              (option) =>
+                String(option.service || "").toUpperCase() === "SEDEX" &&
+                Number(option.price) >= 0,
+            )
+          : null;
 
-        if (!options.length) {
-          throw new Error("Não encontramos opções de frete para este CEP.");
+        if (!sedexOption) {
+          throw new Error("Não foi possível calcular o frete grátis para este CEP.");
         }
 
-        setShippingOptions(options);
+        setSelectedShippingOption({
+          ...sedexOption,
+          destinationCep,
+        });
         setShippingQuotedCep(destinationCep);
       } catch (error) {
         if (cancelled) return;
 
-        setShippingOptions([]);
         setSelectedShippingOption(null);
         setShippingError(
           error instanceof DOMException && error.name === "AbortError"
@@ -878,7 +875,14 @@ export default function IronAirCheckout() {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [preorder, form.postalCode, form.provinceCode, items, shippingOptions.length, shippingQuotedCep]);
+  }, [
+    preorder,
+    form.postalCode,
+    form.provinceCode,
+    items,
+    selectedShippingOption,
+    shippingQuotedCep,
+  ]);
 
   useEffect(() => {
     if (!pixPayment?.paymentId || pixStatus === "PAID") {
@@ -981,7 +985,6 @@ export default function IronAirCheckout() {
         {preorder ? (
           <div className="ia-preorder-topbar">
             <strong>Pré-venda Iron Air</strong>
-            <span>Garanta agora sua unidade do próximo lote.</span>
           </div>
         ) : null}
 
@@ -1132,11 +1135,9 @@ export default function IronAirCheckout() {
             <h2>Frete</h2>
             <div className="ia-shipping-banner">
               <strong>Frete Grátis para todo o Brasil</strong>
-              <span>
-                {preorder
-                  ? "O envio será realizado após a chegada e liberação do lote da pré-venda."
-                  : "PAC ou SEDEX grátis conforme disponibilidade no seu CEP."}
-              </span>
+              {preorder ? (
+                <span>O envio será realizado após a chegada e liberação do lote da pré-venda.</span>
+              ) : null}
             </div>
             {preorder ? (
               <div className="ia-preorder-shipping-option">
@@ -1148,58 +1149,7 @@ export default function IronAirCheckout() {
                 <b>Grátis</b>
               </div>
             ) : null}
-            {!preorder && shippingLoading ? (
-              <div className="ia-shipping-state">Cotando PAC e SEDEX...</div>
-            ) : null}
             {!preorder && shippingError ? <div className="ia-error">{shippingError}</div> : null}
-            {!preorder && !shippingLoading && !shippingError && !shippingOptions.length ? (
-              <div className="ia-shipping-state">
-                Informe um CEP válido para ver as opções de entrega.
-              </div>
-            ) : null}
-            {!preorder && shippingOptions.length ? (
-              <div className="ia-shipping-options">
-                {shippingOptions.map((option) => {
-                  const isSelected =
-                    selectedShippingOption?.serviceCode === option.serviceCode;
-
-                  return (
-                    <button
-                      className={`ia-shipping-option ${isSelected ? "is-selected" : ""}`}
-                      key={option.serviceCode}
-                      type="button"
-                      onClick={() =>
-                        setSelectedShippingOption({
-                          ...option,
-                          destinationCep: onlyDigits(form.postalCode),
-                        })
-                      }
-                    >
-                      <input
-                        aria-label={`Selecionar frete ${option.service}`}
-                        checked={isSelected}
-                        readOnly
-                        type="radio"
-                      />
-                      <span className="ia-shipping-copy">
-                        <strong>{option.service}</strong>
-                        <small>{option.deadlineDays} dias úteis</small>
-                      </span>
-                      <b className={option.isFreeShipping ? "ia-free-shipping-price" : ""}>
-                        {option.isFreeShipping ? (
-                          <>
-                            <s>{formatMoney(option.originalPrice ?? option.price)}</s>
-                            <span>Grátis</span>
-                          </>
-                        ) : (
-                          formatMoney(option.price)
-                        )}
-                      </b>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
             {!preorder && errors.shipping ? <div className="ia-error">{errors.shipping}</div> : null}
           </section>
 
@@ -1272,22 +1222,7 @@ export default function IronAirCheckout() {
             ) : null}
             <div>
               <span>Frete</span>
-              <strong className={preorder || selectedShippingOption ? "" : "muted"}>
-                {preorder ? (
-                  "Grátis"
-                ) : selectedShippingOption ? (
-                  selectedShippingIsFree ? (
-                    <span className="ia-summary-free-shipping">
-                      <s>{formatMoney(selectedShippingOriginalTotal)}</s>
-                      <span>Grátis</span>
-                    </span>
-                  ) : (
-                    formatMoney(shippingTotal)
-                  )
-                ) : (
-                  "Selecione"
-                )}
-              </strong>
+              <strong>Grátis</strong>
             </div>
           </div>
 
