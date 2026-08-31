@@ -1113,6 +1113,36 @@ body:has(.offer-page) {
   height: 34px;
   fill: currentColor;
 }
+.whatsapp-float-label {
+  position: absolute;
+  right: -2px;
+  bottom: calc(100% + 13px);
+  width: max-content;
+  max-width: min(240px, calc(100vw - 28px));
+  padding: 11px 15px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  color: #1f2937;
+  background: #fff;
+  box-shadow: 0 9px 26px rgba(0, 0, 0, 0.16);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+.whatsapp-float-label::after {
+  position: absolute;
+  top: 100%;
+  right: 22px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  content: "";
+  transform: translateY(-6px) rotate(45deg);
+}
 @media (max-width: 800px) {
   .whatsapp-float {
     right: max(14px, env(safe-area-inset-right));
@@ -1123,6 +1153,14 @@ body:has(.offer-page) {
   .whatsapp-float svg {
     width: 31px;
     height: 31px;
+  }
+  .whatsapp-float-label {
+    right: -1px;
+    padding: 10px 13px;
+    font-size: 12px;
+  }
+  .whatsapp-float-label::after {
+    right: 19px;
   }
 }
 
