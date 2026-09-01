@@ -39,6 +39,10 @@ const PIX_COUPON_CODE = "PIX10";
 const TRANSIENT_DATABASE_CODES = new Set(["P1001", "P1002", "P1008", "P2024"]);
 const DATABASE_RETRY_DELAYS_MS = [0, 250, 750];
 
+function isRealAsaasPaymentId(paymentId) {
+  return String(paymentId || "").startsWith("pay_");
+}
+
 function isTransientDatabaseError(error) {
   const message = String(error?.message || error || "");
   return (
@@ -390,6 +394,13 @@ export async function createIronAirCheckout(payload, options = {}) {
     normalizedPayload.externalReference,
   );
 
+  if (existingOrder?.asaasPaymentId && !isRealAsaasPaymentId(existingOrder.asaasPaymentId)) {
+    throw new Error(
+      existingOrder.failureReason ||
+        "A tentativa anterior não foi aprovada. Volte à loja e tente novamente.",
+    );
+  }
+
   if (existingOrder?.asaasPaymentId) {
     const pix =
       normalizedPayload.paymentMethod === "PIX"
@@ -418,6 +429,16 @@ export async function createIronAirCheckout(payload, options = {}) {
 
     const orderCreatedByConcurrentRequest =
       await findAsaasShopifyOrderByExternalReference(normalizedPayload.externalReference);
+
+    if (
+      orderCreatedByConcurrentRequest?.asaasPaymentId &&
+      !isRealAsaasPaymentId(orderCreatedByConcurrentRequest.asaasPaymentId)
+    ) {
+      throw new Error(
+        orderCreatedByConcurrentRequest.failureReason ||
+          "A tentativa anterior não foi aprovada. Volte à loja e tente novamente.",
+      );
+    }
 
     if (orderCreatedByConcurrentRequest?.asaasPaymentId) {
       const pix = normalizedPayload.paymentMethod === "PIX"

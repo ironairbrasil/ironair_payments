@@ -22,11 +22,11 @@ export async function loader({ request }) {
   const paymentId = url.searchParams.get("paymentId") || "";
   const externalReference = url.searchParams.get("externalReference") || "";
 
-  if (!paymentId) {
+  if (!paymentId.startsWith("pay_")) {
     return checkoutJson(
       {
         success: false,
-        error: "paymentId is required.",
+        error: "paymentId is invalid.",
       },
       { status: 400 },
     );

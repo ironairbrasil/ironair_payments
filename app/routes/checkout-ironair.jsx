@@ -347,6 +347,10 @@ function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function isPollablePaymentId(paymentId) {
+  return String(paymentId || "").startsWith("pay_");
+}
+
 function isValidCpf(value) {
   const cpf = onlyDigits(value);
 
@@ -744,6 +748,10 @@ export default function IronAirCheckout() {
         throw new Error(data.error || "Não foi possível criar o pagamento.");
       }
 
+      if (!isPollablePaymentId(data.paymentId)) {
+        throw new Error("O pagamento não foi criado. Confira os dados e tente novamente.");
+      }
+
       if (paymentMethod === "PIX") {
         if (!data.pix?.payload) throw new Error("Não foi possível gerar o Pix.");
 
@@ -885,7 +893,7 @@ export default function IronAirCheckout() {
   ]);
 
   useEffect(() => {
-    if (!pixPayment?.paymentId || pixStatus === "PAID") {
+    if (!isPollablePaymentId(pixPayment?.paymentId) || pixStatus === "PAID") {
       return undefined;
     }
 
@@ -922,7 +930,7 @@ export default function IronAirCheckout() {
   }, [pixPayment, pixStatus]);
 
   useEffect(() => {
-    if (!cardPayment?.paymentId || cardStatus === "PAID") {
+    if (!isPollablePaymentId(cardPayment?.paymentId) || cardStatus === "PAID") {
       return undefined;
     }
 
