@@ -36,6 +36,43 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UF_PATTERN = /^[A-Z]{2}$/;
 const PAYMENT_METHODS = new Set(["PIX", "CREDIT_CARD"]);
 const PIX_COUPON_CODE = "PIX10";
+const TRANSIENT_DATABASE_CODES = new Set(["P1001", "P1002", "P1008", "P2024"]);
+const DATABASE_RETRY_DELAYS_MS = [0, 250, 750];
+
+function isTransientDatabaseError(error) {
+  const message = String(error?.message || error || "");
+  return (
+    TRANSIENT_DATABASE_CODES.has(error?.code) ||
+    message.includes("Can't reach database server") ||
+    message.includes("Timed out fetching a new connection") ||
+    message.includes("Operations timed out")
+  );
+}
+
+async function ensureDatabaseAvailable() {
+  let lastError;
+
+  for (const delayMs of DATABASE_RETRY_DELAYS_MS) {
+    if (delayMs) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDatabaseError(error)) throw error;
+    }
+  }
+
+  const unavailableError = new Error(
+    "O pagamento está temporariamente indisponível. Aguarde alguns instantes e tente novamente.",
+  );
+  unavailableError.code = "DATABASE_UNAVAILABLE";
+  unavailableError.cause = lastError;
+  throw unavailableError;
+}
 const ATTRIBUTION_KEYS = [
   "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid",
 ];
@@ -344,6 +381,10 @@ export function normalizeIronAirCheckoutPayload(payload, { orderType } = {}) {
 }
 
 export async function createIronAirCheckout(payload, options = {}) {
+  // Verify persistence before creating a Shopify draft or an Asaas charge.
+  // This prevents orphaned payments during transient database outages.
+  await ensureDatabaseAvailable();
+
   const normalizedPayload = normalizeIronAirCheckoutPayload(payload, options);
   const existingOrder = await findAsaasShopifyOrderByExternalReference(
     normalizedPayload.externalReference,

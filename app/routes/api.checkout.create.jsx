@@ -66,12 +66,13 @@ export async function action({ request }) {
       reused: checkout.reused,
     });
   } catch (error) {
+    const databaseUnavailable = error?.code === "DATABASE_UNAVAILABLE";
     return checkoutJson(
       {
         success: false,
         error: error instanceof Error ? error.message : String(error),
       },
-      { status: 400 },
+      { status: databaseUnavailable ? 503 : 400 },
     );
   }
 }
