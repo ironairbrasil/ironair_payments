@@ -454,6 +454,7 @@ export async function createIronAirCheckout(payload, options = {}) {
       checkoutUrl: null,
       customer: normalizedPayload.customer,
       shippingAddress: normalizedPayload.shippingAddress,
+      checkoutItems: verifiedItems,
       shippingOption: normalizedPayload.shippingOption,
       couponCode: draftResult.discount?.couponCode || null,
       discountAmount: draftResult.discount?.discountAmount || 0,

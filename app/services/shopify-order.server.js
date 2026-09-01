@@ -666,6 +666,8 @@ export async function getShopifyOrderForCorreios(orderId) {
               originalUnitPriceSet { shopMoney { amount currencyCode } }
               discountedTotalSet { shopMoney { amount currencyCode } }
               variant {
+                id
+                title
                 sku
                 inventoryItem { measurement { weight { value unit } } }
                 product {
@@ -1171,6 +1173,8 @@ export async function attachAsaasPaymentToDraftOrder({
   invoiceUrl,
   checkoutUrl,
   customer,
+  shippingAddress,
+  checkoutItems,
   shippingOption,
   couponCode,
   discountAmount,
@@ -1214,6 +1218,13 @@ export async function attachAsaasPaymentToDraftOrder({
           shippingOption.price !== undefined ? Number(shippingOption.price) : null,
         shippingDeadlineDays: shippingOption.deadlineDays ?? null,
         shippingDestinationCep: shippingOption.destinationCep || null,
+        checkoutData: customer || checkoutItems
+          ? {
+              customer: customer || null,
+              shippingAddress: shippingAddress || null,
+              items: checkoutItems || [],
+            }
+          : undefined,
       },
     });
   }
@@ -1299,6 +1310,13 @@ export async function attachAsaasPaymentToDraftOrder({
         shippingDeadlineDays: shippingOption?.deadlineDays ?? null,
         shippingDestinationCep: shippingOption?.destinationCep || null,
         attribution: attribution || undefined,
+        checkoutData: customer || checkoutItems
+          ? {
+              customer: customer || null,
+              shippingAddress: shippingAddress || null,
+              items: checkoutItems || [],
+            }
+          : undefined,
       },
     });
   } catch (error) {

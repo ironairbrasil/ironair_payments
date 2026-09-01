@@ -50,6 +50,13 @@ model AsaasShopifyOrder {
   asaasCheckoutUrl         String?
   failureReason            String?
   attribution              Json?
+  checkoutData             Json?
+  baseOrderId              Int?      @unique
+  baseCustomerId           Int?
+  baseSyncStatus           String    @default("PENDING")
+  baseSyncError            String?
+  baseSyncEvent            String?
+  baseSyncedAt             DateTime?
   value                    Float
   couponCode               String?
   discountAmount           Float?
@@ -77,6 +84,19 @@ model AsaasShopifyOrder {
   updatedAt                DateTime  @updatedAt
 
   @@unique([externalReference])
+}
+
+model AsaasWebhookEvent {
+  id             String    @id
+  event          String
+  asaasPaymentId String?
+  payload        Json
+  status         String    @default("RECEIVED")
+  error          String?
+  receivedAt     DateTime  @default(now())
+  processedAt    DateTime?
+
+  @@index([asaasPaymentId])
 }
 
 model CheckoutAttempt {

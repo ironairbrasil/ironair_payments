@@ -1,9 +1,11 @@
 import { getAsaasConfig } from "../config/asaas.server";
 import { completeDraftOrderForAsaasPayment } from "./shopify-order.server";
 import { createCorreiosPrePostageIfEligible } from "./correios-order.server";
+import { syncPaidOrderToBase } from "./base-order-sync.server";
 
 const SUPPORTED_PAYMENT_WEBHOOK_EVENTS = new Set([
   "PAYMENT_CREATED",
+  "PAYMENT_UPDATED",
   "PAYMENT_RECEIVED",
   "PAYMENT_CONFIRMED",
   "PAYMENT_OVERDUE",
@@ -617,6 +619,12 @@ export async function handleAsaasWebhook(payload) {
     });
 
     if (completedOrder) {
+      await syncPaidOrderToBase(completedOrder, {
+        customer: asaasCustomer,
+        payment: asaasPayment || payment,
+        event,
+      });
+
       try {
         const postageResult = await createCorreiosPrePostageIfEligible(
           completedOrder,

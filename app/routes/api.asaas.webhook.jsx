@@ -1,7 +1,9 @@
 import process from "node:process";
+import crypto from "node:crypto";
 
 import { getAsaasConfig } from "../config/asaas.server";
 import { handleAsaasWebhook } from "../services/asaas.server";
+import prisma from "../db.server";
 
 function getWebhookHeaderToken(request) {
   const authorization = request.headers.get("authorization");
@@ -37,6 +39,8 @@ export async function loader() {
 }
 
 export async function action({ request }) {
+  let persistedWebhookId;
+  let webhookId;
   if (request.method !== "POST") {
     return Response.json(
       {
@@ -71,7 +75,40 @@ export async function action({ request }) {
 
   try {
     payload = await request.json();
+
+    const paymentId = payload.payment?.id || payload.data?.payment?.id || null;
+    webhookId = String(
+      payload.id ||
+        payload.eventId ||
+        crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex"),
+    );
+    persistedWebhookId = webhookId;
+    try {
+      await prisma.asaasWebhookEvent.create({
+        data: {
+          id: webhookId,
+          event: String(payload.event || "UNKNOWN"),
+          asaasPaymentId: paymentId,
+          payload,
+        },
+      });
+    } catch (error) {
+      if (error?.code === "P2002") {
+        return Response.json({ success: true, duplicate: true, webhookId });
+      }
+      throw error;
+    }
   } catch (error) {
+    if (persistedWebhookId) {
+      await prisma.asaasWebhookEvent.update({
+        where: { id: persistedWebhookId },
+        data: {
+          status: "FAILED",
+          error: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
+          processedAt: new Date(),
+        },
+      }).catch(() => null);
+    }
     return Response.json(
       {
         success: false,
@@ -98,8 +135,14 @@ export async function action({ request }) {
 
     const result = await handleAsaasWebhook(payload);
 
+    await prisma.asaasWebhookEvent.update({
+      where: { id: webhookId },
+      data: { status: "PROCESSED", processedAt: new Date() },
+    });
+
     return Response.json({
       success: true,
+      webhookId,
       webhook: result,
     });
   } catch (error) {
