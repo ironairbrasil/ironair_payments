@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
+import { assertCorreiosEnvironmentSafety } from "../config/environment-safety.server";
 import {
   applyFreeShippingToOptions,
   getStateFromCep,
@@ -572,6 +573,7 @@ async function requestCorreiosToken(
   config: CorreiosConfig,
   forceRefresh = false,
 ) {
+  assertCorreiosEnvironmentSafety();
   const tokenCache = tokenCaches[scope];
   const tokenRequest = tokenRequests[scope];
 

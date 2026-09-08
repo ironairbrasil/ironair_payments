@@ -1,4 +1,5 @@
 import { assertBaseSyncWritesAllowed, getBaseConfig } from "../config/base.server.js";
+import { assertBaseEnvironmentSafety } from "../config/environment-safety.server.js";
 
 function formatBaseError(data) {
   if (typeof data === "string") return data;
@@ -9,6 +10,7 @@ function formatBaseError(data) {
 }
 
 export async function requestBase(path, options = {}, fetcher = fetch) {
+  assertBaseEnvironmentSafety();
   const config = getBaseConfig();
   if (!path.startsWith("/api/v1/")) throw new Error("BASE_PATH_NOT_ALLOWED");
   if (options.method && options.method !== "GET") assertBaseSyncWritesAllowed(config);
@@ -40,7 +42,12 @@ export const getBaseCustomers = (query) =>
   requestBase(`/api/v1/customers?${new URLSearchParams(query).toString()}`);
 export const createBaseCustomer = (body, idempotencyKey) =>
   requestBase("/api/v1/customers", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(body) });
+export const updateBaseCustomer = (id, body) =>
+  requestBase(`/api/v1/customers/${id}`, { method: "PUT", body: JSON.stringify(body) });
 export const getBaseOrders = (query) =>
   requestBase(`/api/v1/salesOrders?${new URLSearchParams(query).toString()}`);
+export const getBaseOrder = (id) => requestBase(`/api/v1/salesOrders/${id}`);
 export const createBaseOrder = (body, idempotencyKey) =>
   requestBase("/api/v1/salesOrders", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(body) });
+export const updateBaseOrder = (id, body) =>
+  requestBase(`/api/v1/salesOrders/${id}`, { method: "PUT", body: JSON.stringify(body) });

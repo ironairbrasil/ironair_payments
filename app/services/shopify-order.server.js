@@ -3,6 +3,10 @@ import { getAsaasConfig } from "../config/asaas.server";
 import { unauthenticated } from "../shopify.server";
 import { FREE_SHIPPING_TITLE } from "./free-shipping.server";
 import { assertShopifyInventoryAvailable } from "./shopify-inventory";
+import {
+  assertAsaasPaymentApproved,
+  assertPaymentMatchesMappedOrder,
+} from "./payment-integrity.server";
 
 const TEST_PRODUCT_TITLE = "Iron Air Sandbox";
 const TEST_VARIANT_TITLE = "127V";
@@ -897,6 +901,7 @@ export async function getVerifiedShopifyCheckoutItems(items) {
 
     return {
       variantId: node.id,
+      variantTitle: node.title || requestedItem.variantTitle || "",
       quantity,
       title:
         requestedItem.title ||
@@ -962,8 +967,8 @@ export async function createDraftShopifyOrderForIronAirCheckout(payload) {
     lineItems,
   };
 
-  console.log("[SHOPIFY CUSTOM CHECKOUT DRAFT PAYLOAD]", {
-    input: sanitizePayloadForLog(input),
+  console.log("[SHOPIFY CUSTOM CHECKOUT DRAFT]", {
+    itemCount: lineItems.length,
   });
 
   const data = await shopifyGraphql(
@@ -1392,15 +1397,13 @@ export async function completeDraftOrderForAsaasPayment(
     externalReference,
   } = {},
 ) {
-  const mappedOrder = await prisma.asaasShopifyOrder.findFirst({
-    where: {
-      OR: [
-        asaasPaymentId ? { asaasPaymentId } : undefined,
-        asaasCheckoutId ? { asaasCheckoutId } : undefined,
-        externalReference ? { externalReference } : undefined,
-      ].filter(Boolean),
-    },
-  });
+  const mappedOrder = asaasPaymentId
+    ? await prisma.asaasShopifyOrder.findUnique({ where: { asaasPaymentId } })
+    : asaasCheckoutId
+      ? await prisma.asaasShopifyOrder.findUnique({ where: { asaasCheckoutId } })
+      : externalReference
+        ? await prisma.asaasShopifyOrder.findUnique({ where: { externalReference } })
+        : null;
 
   if (!mappedOrder) {
     console.warn("[SHOPIFY DRAFT ORDER MISSING]", {
@@ -1410,6 +1413,13 @@ export async function completeDraftOrderForAsaasPayment(
     });
 
     return null;
+  }
+
+  if (asaasPayment) {
+    assertAsaasPaymentApproved(asaasPayment);
+    assertPaymentMatchesMappedOrder(mappedOrder, asaasPayment);
+  } else {
+    throw new Error("ASAAS_PAYMENT_REQUIRED_FOR_ORDER_COMPLETION");
   }
 
   if (mappedOrder.status === "PAID") {
@@ -1438,6 +1448,24 @@ export async function completeDraftOrderForAsaasPayment(
     return mappedOrder;
   }
 
+  const staleCompletionBefore = new Date(Date.now() - 5 * 60 * 1000);
+  const completionClaim = await prisma.asaasShopifyOrder.updateMany({
+    where: {
+      id: mappedOrder.id,
+      OR: [
+        { status: { notIn: ["PAID", "COMPLETING", "REFUNDED", "CHARGEBACK_REQUESTED", "CHARGEBACK_DISPUTE", "AWAITING_CHARGEBACK_REVERSAL", "OVERDUE", "DELETED"] } },
+        { status: "COMPLETING", updatedAt: { lt: staleCompletionBefore } },
+      ],
+    },
+    data: { status: "COMPLETING" },
+  });
+  if (completionClaim.count !== 1) {
+    const current = await prisma.asaasShopifyOrder.findUnique({
+      where: { id: mappedOrder.id },
+    });
+    return current?.status === "PAID" ? current : null;
+  }
+
   const effectiveCustomer = asaasCustomer || {};
   const checkoutId = asaasCheckoutId || mappedOrder.asaasCheckoutId;
   const paymentId = asaasPaymentId || mappedOrder.asaasPaymentId;
@@ -1445,20 +1473,11 @@ export async function completeDraftOrderForAsaasPayment(
   const shippingOption = getMappedShippingOption(mappedOrder);
   const discount = getMappedDiscount(mappedOrder);
 
-  console.log("[asaas] Payment data selected for Shopify.", {
-    response: sanitizePayloadForLog(asaasPayment),
-  });
-  console.log("[asaas] Customer data selected for Shopify.", {
-    response: sanitizePayloadForLog(effectiveCustomer),
-  });
-
   console.log("[SHOPIFY DRAFT ORDER MAPPING CONTEXT]", {
     id: mappedOrder.id,
     draftOrderId: mappedOrder.draftOrderId,
-    externalReference: mappedOrder.externalReference,
     checkoutId,
     paymentId,
-    customer: sanitizePayloadForLog(effectiveCustomer),
   });
 
   if (
@@ -1512,9 +1531,9 @@ export async function completeDraftOrderForAsaasPayment(
         localizedFields: buildBrazilTaxLocalizedFields(effectiveCustomer),
       };
 
-      console.log("[SHOPIFY DRAFT ORDER UPDATE PAYLOAD]", {
+      console.log("[SHOPIFY DRAFT ORDER UPDATE]", {
         draftOrderId: mappedOrder.draftOrderId,
-        input: sanitizePayloadForLog(shopifyUpdatePayload),
+        paymentId,
       });
 
       const customerData = await shopifyGraphql(
@@ -1625,8 +1644,8 @@ export async function completeDraftOrderForAsaasPayment(
     }),
   });
 
-  const updatedOrder = await prisma.asaasShopifyOrder.update({
-    where: { id: mappedOrder.id },
+  const finalized = await prisma.asaasShopifyOrder.updateMany({
+    where: { id: mappedOrder.id, status: "COMPLETING" },
     data: {
       status: "PAID",
       asaasPaymentId: paymentId,
@@ -1641,6 +1660,18 @@ export async function completeDraftOrderForAsaasPayment(
       correiosError: null,
       paidAt: new Date(),
     },
+  });
+
+  if (finalized.count !== 1) {
+    console.warn("[SHOPIFY ORDER COMPLETION SUPERSEDED]", {
+      orderId: mappedOrder.id,
+      payment: asaasPaymentId,
+    });
+    return null;
+  }
+
+  const updatedOrder = await prisma.asaasShopifyOrder.findUnique({
+    where: { id: mappedOrder.id },
   });
 
   console.log("[SHOPIFY ORDER CREATED]", {

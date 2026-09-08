@@ -5,14 +5,17 @@ import {
   createAsaasCreditCardPaymentForCustomCheckout,
   createAsaasPixPaymentForCustomCheckout,
   getAsaasCustomer,
+  getNormalizedAsaasPayment,
   getAsaasPixQrCode,
   isAsaasPaymentApproved,
 } from "./asaas.server";
+import { assertAsaasPaymentApproved } from "./payment-integrity.server";
 import {
   attachAsaasPaymentToDraftOrder,
   completeDraftOrderForAsaasPayment,
 } from "./shopify-order.server";
 import { createCorreiosPrePostageIfEligible } from "./correios-order.server";
+import { syncPaidOrderToBase } from "./base-order-sync.server";
 import {
   createDraftShopifyOrderForIronAirCheckout,
   deleteDraftShopifyOrder,
@@ -125,27 +128,6 @@ function normalizeVariantGid(variantId) {
   }
 
   return `gid://shopify/ProductVariant/${text.replace(/\D/g, "")}`;
-}
-
-function sanitizeForLog(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeForLog(item));
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => {
-      if (["email", "cpfCnpj", "phone"].includes(key)) {
-        const text = String(item || "");
-        return [key, text.length > 4 ? `${text.slice(0, 3)}***${text.slice(-2)}` : "***"];
-      }
-
-      return [key, sanitizeForLog(item)];
-    }),
-  );
 }
 
 function normalizeShippingOption(value = {}) {
@@ -534,29 +516,31 @@ export async function createIronAirCheckout(payload, options = {}) {
     // not dependent on the timing of that webhook.
     if (isAsaasPaymentApproved(payment)) {
       const asaasCustomer = await getAsaasCustomer(payment.customer);
+      const normalizedPayment = await getNormalizedAsaasPayment(payment.id);
+      assertAsaasPaymentApproved(normalizedPayment);
       const completedOrder = await completeDraftOrderForAsaasPayment(payment.id, {
         asaasCustomerId: payment.customer,
         asaasCustomer,
-        asaasPayment: payment,
+        asaasPayment: normalizedPayment,
         externalReference:
           payment.externalReference || normalizedPayload.externalReference,
       });
 
       if (completedOrder) {
+        await syncPaidOrderToBase(completedOrder, {
+          customer: asaasCustomer,
+          payment: normalizedPayment,
+          event: "PAYMENT_IMMEDIATE_CONFIRMED",
+        });
         await createCorreiosPrePostageIfEligible(completedOrder, {
           customer: asaasCustomer,
         });
       }
     }
 
-    console.log("[ironair checkout] Payloads sent.", {
-      shopify: "See [SHOPIFY CUSTOM CHECKOUT DRAFT PAYLOAD]",
-      asaas: sanitizeForLog({
-        customer: normalizedPayload.customer,
-        shippingAddress: normalizedPayload.shippingAddress,
-        externalReference: normalizedPayload.externalReference,
-        items: verifiedItems,
-      }),
+    console.log("[ironair checkout] Payment request completed.", {
+      paymentId: payment.id,
+      billingType: payment.billingType,
     });
 
     return {

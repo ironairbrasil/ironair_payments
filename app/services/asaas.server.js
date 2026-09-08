@@ -1,7 +1,14 @@
 import { getAsaasConfig } from "../config/asaas.server";
+import { assertAsaasEnvironmentSafety } from "../config/environment-safety.server";
+import prisma from "../db.server";
 import { completeDraftOrderForAsaasPayment } from "./shopify-order.server";
 import { createCorreiosPrePostageIfEligible } from "./correios-order.server";
 import { syncPaidOrderToBase } from "./base-order-sync.server";
+import {
+  assertPaymentIdentityMatchesMappedOrder,
+  getBlockingPaymentStatus,
+  withValidatedInstallmentDetails,
+} from "./payment-integrity.server";
 
 const SUPPORTED_PAYMENT_WEBHOOK_EVENTS = new Set([
   "PAYMENT_CREATED",
@@ -20,11 +27,6 @@ const SUPPORTED_PAYMENT_WEBHOOK_EVENTS = new Set([
   "CHECKOUT_PAID",
 ]);
 
-const APPROVED_PAYMENT_EVENTS = new Set([
-  "PAYMENT_RECEIVED",
-  "PAYMENT_CONFIRMED",
-  "CHECKOUT_PAID",
-]);
 const APPROVED_PAYMENT_STATUSES = new Set(["RECEIVED", "CONFIRMED"]);
 const ASAAS_ITEM_NAME = "Iron Air";
 const MAX_ASAAS_DESCRIPTION_LENGTH = 500;
@@ -91,36 +93,6 @@ function buildCustomCheckoutDescription(items, prefix = "") {
   );
 }
 
-function maskValue(value) {
-  const text = String(value || "");
-
-  if (text.includes("@")) {
-    const [user, domain] = text.split("@");
-    return `${user.slice(0, 2)}***@${domain}`;
-  }
-
-  return text.length > 4 ? `${text.slice(0, 3)}***${text.slice(-2)}` : "***";
-}
-
-function sanitizePayloadForLog(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizePayloadForLog(item));
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      ["email", "cpfCnpj", "phone", "mobilePhone"].includes(key)
-        ? maskValue(item)
-        : sanitizePayloadForLog(item),
-    ]),
-  );
-}
-
 function assertAsaasApiKey(apiKey) {
   if (!apiKey) {
     throw new Error("ASAAS_API_KEY is not configured.");
@@ -128,6 +100,7 @@ function assertAsaasApiKey(apiKey) {
 }
 
 async function requestAsaas(path, options = {}) {
+  assertAsaasEnvironmentSafety();
   const { apiKey, baseUrl } = getAsaasConfig();
   assertAsaasApiKey(apiKey);
 
@@ -180,10 +153,7 @@ export async function createAsaasCheckout({
     ...(customerData ? { customerData } : {}),
   };
 
-  console.log(
-    "[asaas] Creating hosted checkout.",
-    sanitizePayloadForLog(checkoutPayload),
-  );
+  console.log("[asaas] Creating hosted checkout.");
 
   const checkout = await requestAsaas("/checkouts", {
     method: "POST",
@@ -212,10 +182,7 @@ async function createAsaasCustomerForCustomCheckout({ customer, shippingAddress 
     state: shippingAddress?.provinceCode,
   };
 
-  console.log(
-    "[asaas] Creating customer for custom checkout.",
-    sanitizePayloadForLog(customerPayload),
-  );
+  console.log("[asaas] Creating customer for custom checkout.");
 
   return requestAsaas("/customers", {
     method: "POST",
@@ -388,10 +355,7 @@ export async function createAsaasPixPaymentForCustomCheckout({
     externalReference,
   };
 
-  console.log(
-    "[asaas] Creating direct Pix payment.",
-    sanitizePayloadForLog(paymentPayload),
-  );
+  console.log("[asaas] Creating direct Pix payment.");
 
   const payment = await requestAsaas("/payments", {
     method: "POST",
@@ -452,19 +416,9 @@ export async function createAsaasCreditCardPaymentForCustomCheckout({
     remoteIp,
   };
 
-  console.log(
-    "[asaas] Creating direct credit card payment.",
-    sanitizePayloadForLog({
-      ...paymentPayload,
-      creditCard: {
-        holderName: creditCard.holderName,
-        number: maskValue(creditCard.number),
-        expiryMonth: creditCard.expiryMonth,
-        expiryYear: creditCard.expiryYear,
-        ccv: "***",
-      },
-    }),
-  );
+  console.log("[asaas] Creating direct credit card payment.", {
+    installmentCount: creditCard.installments,
+  });
 
   const payment = await requestAsaas("/payments", {
     method: "POST",
@@ -491,6 +445,18 @@ export async function getAsaasPayment(paymentId) {
   }
 
   return requestAsaas(`/payments/${paymentId}`);
+}
+
+export async function getAsaasInstallment(installmentId) {
+  if (!installmentId) return null;
+  return requestAsaas(`/installments/${installmentId}`);
+}
+
+export async function getNormalizedAsaasPayment(paymentId) {
+  const payment = await getAsaasPayment(paymentId);
+  if (!payment?.installment) return payment;
+  const installment = await getAsaasInstallment(payment.installment);
+  return withValidatedInstallmentDetails(payment, installment);
 }
 
 export function isAsaasPaymentApproved(payment) {
@@ -570,23 +536,54 @@ export async function handleAsaasWebhook(payload) {
     externalReference,
   };
 
-  console.log("[asaas] Raw webhook payload received.", payload);
   console.log("[asaas] Webhook IDs received.", {
     event,
     paymentId,
-    paymentCustomer: payment?.customer,
     checkoutId,
-    checkoutCustomer: checkout?.customer,
     status: payment?.status ?? checkout?.status,
-    value: payment?.value,
-    externalReference,
   });
 
-  if (APPROVED_PAYMENT_EVENTS.has(event) || isAsaasPaymentApproved(payment)) {
-    const asaasPayment =
-      paymentId && !payment?.externalReference
-        ? await getAsaasPayment(paymentId)
-        : payment;
+  if (paymentId) {
+    const paymentSnapshot = await getAsaasPayment(paymentId);
+    const currentStatus = String(paymentSnapshot?.status || "").toUpperCase();
+    const blockingStatus = getBlockingPaymentStatus(currentStatus);
+
+    if (blockingStatus) {
+      const mappedOrder = await prisma.asaasShopifyOrder.findUnique({
+        where: { asaasPaymentId: paymentId },
+      });
+      if (mappedOrder) {
+        assertPaymentIdentityMatchesMappedOrder(mappedOrder, paymentSnapshot);
+        if (blockingStatus.reversal || mappedOrder.status !== "PAID") {
+          await prisma.asaasShopifyOrder.update({
+            where: { id: mappedOrder.id },
+            data: {
+              status: currentStatus,
+              shippingStatus: blockingStatus.reversal
+                ? "BLOCKED_PAYMENT_REVERSAL"
+                : "BLOCKED_PAYMENT_INACTIVE",
+              baseSyncStatus:
+                blockingStatus.reversal && mappedOrder.baseOrderId
+                  ? "REVERSAL_PENDING"
+                  : mappedOrder.baseSyncStatus,
+              baseSyncError: blockingStatus.reversal
+                ? `Financial reversal requires reconciliation: ${currentStatus}`
+                : mappedOrder.baseSyncError,
+            },
+          });
+        }
+      }
+      return { ...result, status: currentStatus, reversal: blockingStatus.reversal };
+    }
+
+    const asaasPayment = paymentSnapshot?.installment
+      ? await getNormalizedAsaasPayment(paymentId)
+      : paymentSnapshot;
+
+    if (!isAsaasPaymentApproved(asaasPayment)) {
+      return { ...result, status: currentStatus };
+    }
+
     const asaasCustomerId =
       asaasPayment?.customer ?? payment?.customer ?? checkout?.customer;
     const asaasCustomer = await getAsaasCustomer(asaasCustomerId);
@@ -594,19 +591,17 @@ export async function handleAsaasWebhook(payload) {
       asaasPayment?.externalReference ??
       externalReference;
 
-    console.log("[asaas] GET /payments/{id} response.", {
+    console.log("[asaas] Current payment state fetched.", {
       paymentId,
-      response: sanitizePayloadForLog(asaasPayment),
+      status: currentStatus,
+      billingType: asaasPayment?.billingType,
     });
 
     console.log("[asaas] Approved payment webhook:", {
       paymentId,
       checkoutId,
       status: asaasPayment?.status ?? payment?.status ?? checkout?.status,
-      value: asaasPayment?.value ?? payment?.value,
-      customer: asaasCustomerId,
       billingType: asaasPayment?.billingType ?? payment?.billingType,
-      externalReference: resolvedExternalReference,
     });
 
     console.log("[SHOPIFY ORDER READY]");

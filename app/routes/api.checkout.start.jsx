@@ -1,9 +1,8 @@
 import {
   CHECKOUT_CORS_HEADERS,
   checkoutJson,
-  normalizeRealCheckoutPayload,
-  startCheckoutFlow,
-} from "../services/checkout-flow.server";
+} from "../services/http-safety.server";
+import { isLegacyCheckoutAllowed } from "../services/payment-integrity.server";
 
 export async function loader({ request }) {
   if (request.method === "OPTIONS") {
@@ -40,9 +39,14 @@ export async function action({ request }) {
     );
   }
 
+  if (!isLegacyCheckoutAllowed()) {
+    return checkoutJson({ success: false, error: "Not found." }, { status: 404 });
+  }
+
   let payload;
 
   try {
+    const { normalizeRealCheckoutPayload } = await import("../services/checkout-flow.server");
     payload = normalizeRealCheckoutPayload(await request.json());
   } catch (error) {
     return checkoutJson(
@@ -55,6 +59,7 @@ export async function action({ request }) {
   }
 
   try {
+    const { startCheckoutFlow } = await import("../services/checkout-flow.server");
     const checkout = await startCheckoutFlow(payload);
 
     return checkoutJson({

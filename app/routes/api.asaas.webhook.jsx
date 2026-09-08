@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { getAsaasConfig } from "../config/asaas.server";
 import { handleAsaasWebhook } from "../services/asaas.server";
 import prisma from "../db.server";
+import { canRetryWebhookEvent } from "../services/payment-integrity.server";
 
 function getWebhookHeaderToken(request) {
   const authorization = request.headers.get("authorization");
@@ -90,13 +91,46 @@ export async function action({ request }) {
           event: String(payload.event || "UNKNOWN"),
           asaasPaymentId: paymentId,
           payload,
+          status: "PROCESSING",
+          processedAt: new Date(),
         },
       });
     } catch (error) {
       if (error?.code === "P2002") {
-        return Response.json({ success: true, duplicate: true, webhookId });
+        const existing = await prisma.asaasWebhookEvent.findUnique({
+          where: { id: webhookId },
+        });
+        if (existing?.status === "PROCESSED") {
+          return Response.json({ success: true, duplicate: true, webhookId });
+        }
+
+        const staleBefore = new Date(Date.now() - 5 * 60 * 1000);
+        if (!canRetryWebhookEvent(existing, staleBefore)) {
+          return Response.json(
+            { success: true, duplicate: true, inProgress: true, webhookId },
+            { status: 409 },
+          );
+        }
+        const claim = await prisma.asaasWebhookEvent.updateMany({
+          where: {
+            id: webhookId,
+            OR: [
+              { status: "FAILED" },
+              { status: "RECEIVED", receivedAt: { lt: staleBefore } },
+              { status: "PROCESSING", processedAt: { lt: staleBefore } },
+            ],
+          },
+          data: { status: "PROCESSING", error: null, processedAt: new Date() },
+        });
+        if (claim.count !== 1) {
+          return Response.json(
+            { success: true, duplicate: true, inProgress: true, webhookId },
+            { status: 409 },
+          );
+        }
+      } else {
+        throw error;
       }
-      throw error;
     }
   } catch (error) {
     if (persistedWebhookId) {
@@ -119,19 +153,11 @@ export async function action({ request }) {
   }
 
   try {
-    console.log(
-      [
-        "[ASAAS WEBHOOK]",
-        `event=${payload.event}`,
-        `payment=${payload.payment?.id}`,
-        `value=${payload.payment?.value}`,
-        `customer=${payload.payment?.customer}`,
-        `checkout=${payload.checkout?.id}`,
-        `externalReference=${
-          payload.payment?.externalReference || payload.checkout?.externalReference
-        }`,
-      ].join("\n"),
-    );
+    console.log("[ASAAS WEBHOOK] Event accepted.", {
+      webhookId,
+      event: payload.event,
+      paymentId: payload.payment?.id || payload.data?.payment?.id || null,
+    });
 
     const result = await handleAsaasWebhook(payload);
 
@@ -146,6 +172,14 @@ export async function action({ request }) {
       webhook: result,
     });
   } catch (error) {
+    await prisma.asaasWebhookEvent.update({
+      where: { id: webhookId },
+      data: {
+        status: "FAILED",
+        error: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
+        processedAt: new Date(),
+      },
+    }).catch(() => null);
     return Response.json(
       {
         success: false,

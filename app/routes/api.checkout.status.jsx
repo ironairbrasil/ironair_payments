@@ -1,6 +1,6 @@
 import {
   getAsaasCustomer,
-  getAsaasPayment,
+  getNormalizedAsaasPayment,
   isAsaasPaymentApproved,
 } from "../services/asaas.server";
 import {
@@ -9,6 +9,8 @@ import {
 } from "../services/checkout-flow.server";
 import { completeDraftOrderForAsaasPayment } from "../services/shopify-order.server";
 import { createCorreiosPrePostageIfEligible } from "../services/correios-order.server";
+import { syncPaidOrderToBase } from "../services/base-order-sync.server";
+import prisma from "../db.server";
 
 export async function loader({ request }) {
   if (request.method === "OPTIONS") {
@@ -32,8 +34,16 @@ export async function loader({ request }) {
     );
   }
 
+  const mappedOrder = await prisma.asaasShopifyOrder.findUnique({
+    where: { asaasPaymentId: paymentId },
+    select: { externalReference: true },
+  });
+  if (!mappedOrder || !externalReference || mappedOrder.externalReference !== externalReference) {
+    return checkoutJson({ success: false, error: "Payment not found." }, { status: 404 });
+  }
+
   try {
-    const payment = await getAsaasPayment(paymentId);
+    const payment = await getNormalizedAsaasPayment(paymentId);
     const paid = isAsaasPaymentApproved(payment);
 
     if (paid) {
@@ -43,8 +53,16 @@ export async function loader({ request }) {
         asaasCustomerId: payment.customer,
         asaasCustomer,
         asaasPayment: payment,
-        externalReference: payment.externalReference || externalReference,
+        externalReference: payment.externalReference,
       });
+
+      if (completedOrder) {
+        await syncPaidOrderToBase(completedOrder, {
+          customer: asaasCustomer,
+          payment,
+          event: "PAYMENT_STATUS_CONFIRMED",
+        });
+      }
 
       if (
         completedOrder &&
@@ -66,7 +84,7 @@ export async function loader({ request }) {
       paid,
       status: payment.status,
       paymentId: payment.id,
-      externalReference: payment.externalReference || externalReference,
+      externalReference: payment.externalReference,
     });
   } catch (error) {
     return checkoutJson(

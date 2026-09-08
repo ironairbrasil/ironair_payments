@@ -1,12 +1,6 @@
 import process from "node:process";
 
-import { getAsaasConfig } from "../config/asaas.server";
-import prisma from "../db.server";
-import {
-  cancelPrePostage,
-  getPrePostageByTrackingCode,
-} from "../services/correios.server";
-import { createCorreiosPrePostageForOrder } from "../services/correios-order.server";
+import { isIncidentRecoveryAllowed } from "../services/http-safety.server";
 
 const REPAIRABLE_ORDER_IDS = new Set([38, 40]);
 const CANCELLABLE_STATUSES = new Set([
@@ -25,7 +19,7 @@ function getBearerToken(request) {
 }
 
 function isAuthorized(request) {
-  const expected = process.env.ADMIN_API_TOKEN || getAsaasConfig().webhookToken;
+  const expected = process.env.ADMIN_API_TOKEN;
   return Boolean(expected && getBearerToken(request) === expected);
 }
 
@@ -63,6 +57,7 @@ function getStatusDetails(value, trackingCode) {
 }
 
 async function getConfirmedCorreiosStatus(trackingCode) {
+  const { getPrePostageByTrackingCode } = await import("../services/correios.server");
   return getPrePostageByTrackingCode(trackingCode);
 }
 
@@ -72,6 +67,7 @@ async function loadOrder(params) {
     throw new Error("This recovery endpoint is restricted to orders 38 and 40.");
   }
 
+  const { default: prisma } = await import("../db.server");
   const order = await prisma.asaasShopifyOrder.findUnique({ where: { id } });
   if (!order?.correiosPrePostageId) {
     throw new Error("Order does not have an active Correios pre-postage id.");
@@ -80,6 +76,9 @@ async function loadOrder(params) {
 }
 
 export async function loader({ request, params }) {
+  if (!isIncidentRecoveryAllowed()) {
+    return Response.json({ success: false, error: "Not found." }, { status: 404 });
+  }
   if (!isAuthorized(request)) {
     return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
   }
@@ -109,6 +108,9 @@ export async function loader({ request, params }) {
 }
 
 export async function action({ request, params }) {
+  if (!isIncidentRecoveryAllowed()) {
+    return Response.json({ success: false, error: "Not found." }, { status: 404 });
+  }
   if (request.method !== "POST") {
     return Response.json({ success: false, error: "Method not allowed." }, { status: 405 });
   }
@@ -117,6 +119,11 @@ export async function action({ request, params }) {
   }
 
   try {
+    const [{ default: prisma }, { cancelPrePostage, getPrePostageByTrackingCode }, { createCorreiosPrePostageForOrder }] = await Promise.all([
+      import("../db.server"),
+      import("../services/correios.server"),
+      import("../services/correios-order.server"),
+    ]);
     const order = await loadOrder(params);
     const before = await getConfirmedCorreiosStatus(order.correiosTrackingCode);
     const beforeStatus = normalizedStatus(before);

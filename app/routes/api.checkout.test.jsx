@@ -1,8 +1,8 @@
 import {
   CHECKOUT_CORS_HEADERS as CORS_HEADERS,
   checkoutJson as json,
-  startCheckoutFlow,
-} from "../services/checkout-flow.server";
+} from "../services/http-safety.server";
+import { isLegacyCheckoutAllowed } from "../services/payment-integrity.server";
 
 const DEFAULT_CHECKOUT_PAYLOAD = {
   name: "Cliente Teste",
@@ -78,6 +78,10 @@ export async function action({ request }) {
     );
   }
 
+  if (!isLegacyCheckoutAllowed()) {
+    return json({ success: false, error: "Not found." }, { status: 404 });
+  }
+
   let payload;
 
   try {
@@ -94,6 +98,7 @@ export async function action({ request }) {
   }
 
   try {
+    const { startCheckoutFlow } = await import("../services/checkout-flow.server");
     return json(await startCheckoutFlow(payload, { allowTestFallback: true }));
   } catch (error) {
     return json(

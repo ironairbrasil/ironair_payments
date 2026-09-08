@@ -46,7 +46,7 @@ test("maps the frozen checkout SKU to a Base product", () => {
   const map = parseProductMap('{"IRON-AIR-127V":100704254}');
   assert.deepEqual(
     mappedProduct({ items: [{ sku: "iron-air-127v", quantity: 2 }] }, map),
-    { productId: 100704254, sku: "IRON-AIR-127V", quantity: 2 },
+    { productId: 100704254, sku: "IRON-AIR-127V", quantity: 2, unitPrice: null },
   );
 });
 
@@ -54,11 +54,23 @@ test("maps legacy Iron Air variants when Shopify has no SKU", () => {
   const map = parseProductMap('{"IRON-AIR-127V":129733866,"IRON-AIR-220V":129733867}');
   assert.deepEqual(
     mappedProduct({ items: [{ sku: "", title: "Iron Air", variantTitle: "127V", quantity: 1 }] }, map),
-    { productId: 129733866, sku: "IRON-AIR-127V", quantity: 1 },
+    { productId: 129733866, sku: "IRON-AIR-127V", quantity: 1, unitPrice: null },
   );
   assert.deepEqual(
     mappedProduct({ items: [{ title: "Iron Air", variantTitle: "220V", quantity: 1 }] }, map),
-    { productId: 129733867, sku: "IRON-AIR-220V", quantity: 1 },
+    { productId: 129733867, sku: "IRON-AIR-220V", quantity: 1, unitPrice: null },
+  );
+});
+
+test("maps persisted Shopify variant ids when legacy checkout data has no SKU or variant title", () => {
+  const map = parseProductMap('{"IRON-AIR-127V":129733866,"IRON-AIR-220V":129733867}');
+  assert.deepEqual(
+    mappedProduct({ items: [{ variantId: "gid://shopify/ProductVariant/52109245186349", title: "Iron Air", quantity: 1 }] }, map),
+    { productId: 129733866, sku: "IRON-AIR-127V", quantity: 1, unitPrice: null },
+  );
+  assert.deepEqual(
+    mappedProduct({ items: [{ variantId: "gid://shopify/ProductVariant/52109245219117", title: "Iron Air", quantity: 1 }] }, map),
+    { productId: 129733867, sku: "IRON-AIR-220V", quantity: 1, unitPrice: null },
   );
 });
 

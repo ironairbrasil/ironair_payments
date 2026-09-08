@@ -6,8 +6,10 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import { validateAsaasStartupConfig } from "./config/asaas.server";
+import { validateRuntimeEnvironment } from "./config/environment-safety.server";
 import prisma from "./db.server";
 
+const runtimeEnvironment = validateRuntimeEnvironment();
 validateAsaasStartupConfig();
 
 const shopify = shopifyApp({
@@ -15,7 +17,7 @@ const shopify = shopifyApp({
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October25,
   scopes: process.env.SCOPES?.split(","),
-  appUrl: process.env.SHOPIFY_APP_URL || "",
+  appUrl: process.env.SHOPIFY_APP_URL || runtimeEnvironment.appUrl,
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,

@@ -1,8 +1,13 @@
+import process from "node:process";
+
 import { getAsaasConfig } from "../config/asaas.server";
-import { testAsaasConnection } from "../services/asaas.server";
 
 export async function loader() {
+  if (process.env.NODE_ENV === "production" || getAsaasConfig().env === "production") {
+    return Response.json({ success: false, error: "Not found." }, { status: 404 });
+  }
   try {
+    const { testAsaasConnection } = await import("../services/asaas.server");
     const result = await testAsaasConnection();
 
     return Response.json(result, {
