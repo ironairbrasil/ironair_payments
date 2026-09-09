@@ -40,7 +40,7 @@ const UF_PATTERN = /^[A-Z]{2}$/;
 const PAYMENT_METHODS = new Set(["PIX", "CREDIT_CARD"]);
 const PIX_COUPON_CODE = "PIX10";
 const TRANSIENT_DATABASE_CODES = new Set(["P1001", "P1002", "P1008", "P2024"]);
-const DATABASE_RETRY_DELAYS_MS = [0, 250, 750];
+const DATABASE_RETRY_DELAYS_MS = [0, 1000, 3000, 6000];
 
 function isRealAsaasPaymentId(paymentId) {
   return String(paymentId || "").startsWith("pay_");
