@@ -6,11 +6,24 @@ import {
   parseProductMap,
 } from "../app/config/base.server.js";
 import {
+  baseFinancialPayload,
   billingType,
   customerPayload,
   mappedProduct,
   paymentDueDate,
 } from "../app/services/base-order-sync.server.js";
+
+test("links Base payments to the existing Asaas installment instead of creating a new charge", () => {
+  const financial = baseFinancialPayload(
+    { value: 1499, discountAmount: 0, shippingPrice: 0 },
+    { id: "pay_existing", value: 124.91, installmentCount: 12 },
+    { productId: 100704254, quantity: 1, unitPrice: 1499 },
+  );
+
+  assert.equal(financial.asaasPaymentId, "pay_existing");
+  assert.equal(financial.installmentCount, 12);
+  assert.equal(financial.orderPaymentValue, 1499);
+});
 
 test("creates CPF customers as non-contributors and final consumers", () => {
   const payload = customerPayload({ id: "cus_test", name: "Cliente Teste" }, "12345678901");

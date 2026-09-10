@@ -136,6 +136,7 @@ export function baseFinancialPayload(mappedOrder, payment, product) {
       unitPrice,
     },
     orderPaymentValue: saleTotal,
+    asaasPaymentId: String(payment.id || ""),
     asaasInstallmentValue: Number(payment.value),
     installmentCount: Number(payment.installmentCount || 1),
     discountAmount,
@@ -210,6 +211,10 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
         value: financial.orderPaymentValue,
         bankId: config.bankId,
         billingType: billingType(payment.billingType),
+        // Link the charge already paid in Asaas. Without paymentId, Base treats
+        // this entry as a new receivable and creates a duplicate Asaas charge.
+        paymentId: financial.asaasPaymentId,
+        numberInstallments: financial.installmentCount,
       }],
     }, `asaas-payment-${payment.id}`);
 
