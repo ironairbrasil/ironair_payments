@@ -206,9 +206,10 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
         // SEFAZ rejects an NF-e duplicate whose due date predates issuance.
         // Keep a valid future Asaas due date; otherwise use the Base order date.
         dueDate: paymentDueDate(payment.dueDate, issueDate),
-        // Asaas payment.value is one installment for parcelled charges.
-        // Base must receive the full paid order total, never the installment value.
-        value: financial.orderPaymentValue,
+        // paymentId links an installment that already exists in Asaas. Its value
+        // must stay equal to that installment; Base rejects attempts to replace
+        // it with the full sale total after the card charge is confirmed.
+        value: financial.asaasInstallmentValue,
         bankId: config.bankId,
         billingType: billingType(payment.billingType),
         // Link the charge already paid in Asaas. Without paymentId, Base treats

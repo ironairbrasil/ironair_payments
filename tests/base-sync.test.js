@@ -23,6 +23,7 @@ test("links Base payments to the existing Asaas installment instead of creating 
   assert.equal(financial.asaasPaymentId, "pay_existing");
   assert.equal(financial.installmentCount, 12);
   assert.equal(financial.orderPaymentValue, 1499);
+  assert.equal(financial.asaasInstallmentValue, 124.91);
 });
 
 test("creates CPF customers as non-contributors and final consumers", () => {
