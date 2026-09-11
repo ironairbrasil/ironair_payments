@@ -178,8 +178,78 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846439400.mp4",
-    poster: "/media/depoimentos/snapinsta-1787846439400-poster.png",
+    poster: "/media/depoimentos/snapinsta-1787846439400-poster-560.webp",
     label: "Cliente usando o Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-05.mp4",
+    poster: "/media/depoimentos/cliente-video-05-poster.png",
+    label: "Cliente mostrando o Iron Air em casa",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-06.mp4",
+    poster: "/media/depoimentos/cliente-video-06-poster.png",
+    label: "Experiência de cliente com o Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-07.mp4",
+    poster: "/media/depoimentos/cliente-video-07-poster.png",
+    label: "Iron Air na rotina de um cliente",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-08.mp4",
+    poster: "/media/depoimentos/cliente-video-08-poster.png",
+    label: "Cliente demonstrando o Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-09.mp4",
+    poster: "/media/depoimentos/cliente-video-09-poster.png",
+    label: "Depoimento real sobre o Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-10.mp4",
+    poster: "/media/depoimentos/cliente-video-10-poster.png",
+    label: "Cliente usando o Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-11.mp4",
+    poster: "/media/depoimentos/cliente-video-11-poster.png",
+    label: "Iron Air funcionando na casa de cliente",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-12.mp4",
+    poster: "/media/depoimentos/cliente-video-12-poster.png",
+    label: "Relato de cliente do Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-13.mp4",
+    poster: "/media/depoimentos/cliente-video-13-poster.png",
+    label: "Demonstração real do Iron Air",
+  },
+  {
+    type: "video",
+    src: "/media/depoimentos/cliente-video-14.mp4",
+    poster: "/media/depoimentos/cliente-video-14-poster.png",
+    label: "Cliente compartilhando sua experiência com o Iron Air",
+  },
+  {
+    type: "image",
+    src: "/media/depoimentos/cliente-foto-04.jpg",
+    label: "Cliente recebendo seu Iron Air",
+  },
+  {
+    type: "image",
+    src: "/media/depoimentos/cliente-foto-05.jpg",
+    label: "Iron Air em uso na loja de cliente",
   },
 ];
 
