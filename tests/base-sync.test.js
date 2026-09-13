@@ -7,6 +7,7 @@ import {
 } from "../app/config/base.server.js";
 import {
   baseFinancialPayload,
+  baseSalesOrderPayload,
   billingType,
   customerPayload,
   mappedProduct,
@@ -24,6 +25,24 @@ test("links Base payments to the existing Asaas installment instead of creating 
   assert.equal(financial.installmentCount, 12);
   assert.equal(financial.orderPaymentValue, 1499);
   assert.equal(financial.asaasInstallmentValue, 124.91);
+});
+
+test("creates the Base sales order without creating or editing an Asaas receivable", () => {
+  const financial = baseFinancialPayload(
+    { value: 1499, discountAmount: 0, shippingPrice: 0 },
+    { id: "pay_confirmed", value: 749.5, installmentCount: 2 },
+    { productId: 100704254, quantity: 1, unitPrice: 1499 },
+  );
+  const payload = baseSalesOrderPayload({
+    issueDate: "2026-09-13",
+    baseCustomerId: 120705151,
+    payment: { id: "pay_confirmed" },
+    financial,
+  });
+
+  assert.equal(payload.externalReference, "asaas:pay_confirmed");
+  assert.equal(payload.orderItems[0].unitPrice, 1499);
+  assert.equal("orderPayments" in payload, false);
 });
 
 test("creates CPF customers as non-contributors and final consumers", () => {

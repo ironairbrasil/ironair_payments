@@ -158,6 +158,24 @@ export function paymentDueDate(value, issueDate) {
     : issueDate;
 }
 
+export function baseSalesOrderPayload({ issueDate, baseCustomerId, payment, financial }) {
+  return {
+    issueDate,
+    customerId: baseCustomerId,
+    externalReference: `asaas:${payment.id}`,
+    observations: [
+      `Origem: Asaas | cobrança paga: ${payment.id}`,
+      `Parcelamento: ${financial.installmentCount}x | total: ${financial.saleTotal.toFixed(2)}`,
+      `Desconto: ${financial.discountAmount.toFixed(2)} | frete: ${financial.shippingAmount.toFixed(2)}`,
+    ].join(" | "),
+    typeOfShipping: "SEM_FRETE",
+    orderItems: [financial.orderItem],
+    // Do not send orderPayments for an Asaas charge that is already confirmed.
+    // Base treats that array as a request to create or edit receivables; linking
+    // the confirmed card charge is rejected and omitting its id creates a duplicate.
+  };
+}
+
 export async function syncPaidOrderToBase(mappedOrder, { customer, payment, event }) {
   const config = getBaseConfig();
   if (!config.enabled) return { status: "DISABLED" };
@@ -191,33 +209,10 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
     if (existing.length > 1) throw new Error("BASE_ORDER_AMBIGUOUS");
     const issueDate = new Date().toISOString().slice(0, 10);
 
-    const order = existing[0] || await createBaseOrder({
-      issueDate,
-      customerId: baseCustomerId,
-      externalReference,
-      observations: [
-        `Origem: Asaas | cobrança: ${payment.id}`,
-        `Parcelamento: ${financial.installmentCount}x | total: ${financial.saleTotal.toFixed(2)}`,
-        `Desconto: ${financial.discountAmount.toFixed(2)} | frete: ${financial.shippingAmount.toFixed(2)}`,
-      ].join(" | "),
-      typeOfShipping: "SEM_FRETE",
-      orderItems: [financial.orderItem],
-      orderPayments: [{
-        // SEFAZ rejects an NF-e duplicate whose due date predates issuance.
-        // Keep a valid future Asaas due date; otherwise use the Base order date.
-        dueDate: paymentDueDate(payment.dueDate, issueDate),
-        // paymentId links an installment that already exists in Asaas. Its value
-        // must stay equal to that installment; Base rejects attempts to replace
-        // it with the full sale total after the card charge is confirmed.
-        value: financial.asaasInstallmentValue,
-        bankId: config.bankId,
-        billingType: billingType(payment.billingType),
-        // Link the charge already paid in Asaas. Without paymentId, Base treats
-        // this entry as a new receivable and creates a duplicate Asaas charge.
-        paymentId: financial.asaasPaymentId,
-        numberInstallments: financial.installmentCount,
-      }],
-    }, `asaas-payment-${payment.id}`);
+    const order = existing[0] || await createBaseOrder(
+      baseSalesOrderPayload({ issueDate, baseCustomerId, payment, financial }),
+      `asaas-payment-${payment.id}`,
+    );
 
     await prisma.asaasShopifyOrder.update({
       where: { id: mappedOrder.id },
