@@ -7,6 +7,7 @@ import {
 } from "../app/config/base.server.js";
 import {
   baseFinancialPayload,
+  baseOrderIssueDate,
   baseSalesOrderPayload,
   billingType,
   customerPayload,
@@ -27,7 +28,7 @@ test("links Base payments to the existing Asaas installment instead of creating 
   assert.equal(financial.asaasInstallmentValue, 124.91);
 });
 
-test("creates the Base sales order without creating or editing an Asaas receivable", () => {
+test("links the Base order without changing the confirmed Asaas receivable", () => {
   const financial = baseFinancialPayload(
     { value: 1499, discountAmount: 0, shippingPrice: 0 },
     { id: "pay_confirmed", value: 749.5, installmentCount: 2 },
@@ -36,13 +37,31 @@ test("creates the Base sales order without creating or editing an Asaas receivab
   const payload = baseSalesOrderPayload({
     issueDate: "2026-09-13",
     baseCustomerId: 120705151,
-    payment: { id: "pay_confirmed" },
+    bankId: 1001,
+    payment: {
+      id: "pay_confirmed",
+      dueDate: "2026-09-11",
+      billingType: "CREDIT_CARD",
+    },
     financial,
   });
 
   assert.equal(payload.externalReference, "asaas:pay_confirmed");
   assert.equal(payload.orderItems[0].unitPrice, 1499);
-  assert.equal("orderPayments" in payload, false);
+  assert.equal(payload.orderPayments[0].paymentId, "pay_confirmed");
+  assert.equal(payload.orderPayments[0].dueDate, "2026-09-11");
+  assert.equal(payload.orderPayments[0].value, 749.5);
+  assert.equal(payload.orderPayments[0].numberInstallments, 2);
+});
+
+test("uses the original payment date when retrying a Base order later", () => {
+  assert.equal(
+    baseOrderIssueDate(
+      { createdAt: new Date("2026-09-11T22:32:10Z") },
+      { dateCreated: "2026-09-11", dueDate: "2026-09-11" },
+    ),
+    "2026-09-11",
+  );
 });
 
 test("creates CPF customers as non-contributors and final consumers", () => {

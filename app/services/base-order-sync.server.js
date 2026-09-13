@@ -158,7 +158,21 @@ export function paymentDueDate(value, issueDate) {
     : issueDate;
 }
 
-export function baseSalesOrderPayload({ issueDate, baseCustomerId, payment, financial }) {
+export function baseOrderIssueDate(mappedOrder, payment) {
+  const candidates = [
+    payment?.dateCreated,
+    payment?.confirmedDate,
+    mappedOrder?.paidAt,
+    mappedOrder?.createdAt,
+  ];
+  for (const candidate of candidates) {
+    const date = String(candidate || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  }
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payment, financial }) {
   return {
     issueDate,
     customerId: baseCustomerId,
@@ -170,9 +184,16 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, payment, fina
     ].join(" | "),
     typeOfShipping: "SEM_FRETE",
     orderItems: [financial.orderItem],
-    // Do not send orderPayments for an Asaas charge that is already confirmed.
-    // Base treats that array as a request to create or edit receivables; linking
-    // the confirmed card charge is rejected and omitting its id creates a duplicate.
+    orderPayments: [{
+      // Keep the original charge fields unchanged. Base permits linking a
+      // confirmed Asaas charge, but rejects any attempt to alter its value or date.
+      dueDate: payment.dueDate,
+      value: financial.asaasInstallmentValue,
+      bankId,
+      billingType: billingType(payment.billingType),
+      paymentId: financial.asaasPaymentId,
+      numberInstallments: financial.installmentCount,
+    }],
   };
 }
 
@@ -207,10 +228,12 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
     const externalReference = `asaas:${payment.id}`;
     const existing = getContent(await getBaseOrders({ externalReference, page: "0", size: "2" }));
     if (existing.length > 1) throw new Error("BASE_ORDER_AMBIGUOUS");
-    const issueDate = new Date().toISOString().slice(0, 10);
+    // Use the sale date instead of the retry date. Otherwise a later retry moves
+    // the due date of an already confirmed card charge and Base rejects the order.
+    const issueDate = baseOrderIssueDate(mappedOrder, payment);
 
     const order = existing[0] || await createBaseOrder(
-      baseSalesOrderPayload({ issueDate, baseCustomerId, payment, financial }),
+      baseSalesOrderPayload({ issueDate, baseCustomerId, bankId: config.bankId, payment, financial }),
       `asaas-payment-${payment.id}`,
     );
 
