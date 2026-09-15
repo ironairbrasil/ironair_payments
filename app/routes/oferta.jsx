@@ -35,7 +35,7 @@ import landingStyles from "../styles/oferta.css?url";
 
 export function links() {
   return [
-    { rel: "preload", as: "style", href: landingStyles },
+    { rel: "stylesheet", href: landingStyles },
     {
       rel: "preload",
       as: "image",
@@ -182,61 +182,61 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-05.mp4",
-    poster: "/media/depoimentos/cliente-video-05-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-05-poster.png",
     label: "Cliente mostrando o Iron Air em casa",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-06.mp4",
-    poster: "/media/depoimentos/cliente-video-06-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-06-poster.png",
     label: "Experiência de cliente com o Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-07.mp4",
-    poster: "/media/depoimentos/cliente-video-07-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-07-poster.png",
     label: "Iron Air na rotina de um cliente",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-08.mp4",
-    poster: "/media/depoimentos/cliente-video-08-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-08-poster.png",
     label: "Cliente demonstrando o Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-09.mp4",
-    poster: "/media/depoimentos/cliente-video-09-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-09-poster.png",
     label: "Depoimento real sobre o Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-10.mp4",
-    poster: "/media/depoimentos/cliente-video-10-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-10-poster.png",
     label: "Cliente usando o Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-11.mp4",
-    poster: "/media/depoimentos/cliente-video-11-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-11-poster.png",
     label: "Iron Air funcionando na casa de cliente",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-12.mp4",
-    poster: "/media/depoimentos/cliente-video-12-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-12-poster.png",
     label: "Relato de cliente do Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-13.mp4",
-    poster: "/media/depoimentos/cliente-video-13-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-13-poster.png",
     label: "Demonstração real do Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/cliente-video-14.mp4",
-    poster: "/media/depoimentos/cliente-video-14-poster-560.webp",
+    poster: "/media/depoimentos/cliente-video-14-poster.png",
     label: "Cliente compartilhando sua experiência com o Iron Air",
   },
   {
@@ -706,17 +706,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
   );
 
   return (
-    <>
-      <link id="offer-styles" rel="stylesheet" href={landingStyles} media="print" />
-      <script
-        dangerouslySetInnerHTML={{
-          __html:
-            'document.getElementById("offer-styles").onload=function(){this.media="all"}',
-        }}
-      />
-      <noscript><link rel="stylesheet" href={landingStyles} /></noscript>
-      <main
-        className={`offer-page ${shouldHideLaunchHero ? "kit-offer-page" : ""}`}
+    <main
+      className={`offer-page ${shouldHideLaunchHero ? "kit-offer-page" : ""}`}
     >
       <header className="promo-bar">
         Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
@@ -1870,7 +1861,6 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
           <path d="M12.04 2a9.84 9.84 0 0 0-8.5 14.78L2.05 22l5.35-1.4A9.96 9.96 0 0 0 12.04 22 9.97 9.97 0 0 0 22 12.04 9.96 9.96 0 0 0 12.04 2Zm0 18.32a8.3 8.3 0 0 1-4.24-1.16l-.3-.18-3.18.84.85-3.1-.2-.32a8.2 8.2 0 0 1-1.27-4.36 8.34 8.34 0 1 1 8.34 8.28Zm4.57-6.23c-.25-.13-1.48-.73-1.71-.81-.23-.09-.4-.13-.57.12-.16.25-.65.82-.8.98-.14.17-.29.19-.54.07a6.82 6.82 0 0 1-2.01-1.24 7.57 7.57 0 0 1-1.4-1.74c-.15-.25-.02-.38.11-.5.11-.11.25-.29.38-.44.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.44-.07-.12-.57-1.37-.78-1.87-.2-.5-.41-.43-.57-.44h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.23.9 2.43 1.03 2.6.12.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.43.53.6.19 1.15.16 1.58.1.48-.07 1.48-.61 1.69-1.19.2-.58.2-1.07.14-1.18-.06-.1-.23-.17-.48-.29Z" />
         </svg>
       </a>
-      </main>
-    </>
+    </main>
   );
 }
