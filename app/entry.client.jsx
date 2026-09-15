@@ -22,5 +22,5 @@ if (!isOffer) {
       passive: true,
     }),
   );
-  timer = window.setTimeout(hydrate, 15000);
+  timer = window.setTimeout(hydrate, 60000);
 }

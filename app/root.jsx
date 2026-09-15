@@ -102,7 +102,7 @@ function Analytics({
           passive: true,
         }),
       );
-      fallbackTimer = window.setTimeout(loadAnalytics, 15000);
+      fallbackTimer = window.setTimeout(loadAnalytics, 60000);
     } else {
       loadAnalytics();
     }
