@@ -46,6 +46,26 @@ function Analytics({
     const loadAnalytics = () => {
       cleanup();
 
+      if (deferAnalytics && !document.querySelector('[data-utmify="loaded"]')) {
+        window.pixelId = "6aa1c3454dbf28bfd8efb9a4";
+        for (const [src, attributes] of [
+          ["https://cdn.utmify.com.br/scripts/pixel/pixel.js", {}],
+          ["https://cdn.utmify.com.br/scripts/utms/latest.js", {
+            "data-utmify-prevent-xcod-sck": "",
+            "data-utmify-prevent-subids": "",
+          }],
+        ]) {
+          const script = document.createElement("script");
+          script.async = true;
+          script.src = src;
+          script.dataset.utmify = "loaded";
+          Object.entries(attributes).forEach(([name, value]) =>
+            script.setAttribute(name, value),
+          );
+          document.head.appendChild(script);
+        }
+      }
+
       if (clarityProjectId && !window.clarity) {
         window.clarity = (...args) => {
           window.clarity.q = window.clarity.q || [];
@@ -102,7 +122,7 @@ function Analytics({
           passive: true,
         }),
       );
-      fallbackTimer = window.setTimeout(loadAnalytics, 15000);
+      fallbackTimer = window.setTimeout(loadAnalytics, 30000);
     } else {
       loadAnalytics();
     }
@@ -140,27 +160,6 @@ export default function App() {
         />
         <Meta />
         <Links />
-        {deferAnalytics ? (
-          <>
-            <script
-              dangerouslySetInnerHTML={{
-                __html: 'window.pixelId="6aa1c3454dbf28bfd8efb9a4";',
-              }}
-            />
-            <script
-              async
-              defer
-              src="https://cdn.utmify.com.br/scripts/pixel/pixel.js"
-            />
-            <script
-              async
-              defer
-              src="https://cdn.utmify.com.br/scripts/utms/latest.js"
-              data-utmify-prevent-xcod-sck=""
-              data-utmify-prevent-subids=""
-            />
-          </>
-        ) : null}
       </head>
       <body>
         <Analytics
