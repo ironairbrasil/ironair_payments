@@ -5,7 +5,7 @@ const isOffer =
 if (!isOffer) {
   import("./hydrate.client");
 } else {
-  const events = ["pointerdown", "keydown", "touchstart", "scroll"];
+  const events = ["pointerdown", "keydown", "touchstart"];
   let timer;
 
   const hydrate = () => {
