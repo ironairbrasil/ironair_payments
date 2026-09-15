@@ -1,20 +1,26 @@
-import { startTransition, StrictMode } from "react";
-import { hydrateRoot } from "react-dom/client";
-import { HydratedRouter } from "react-router/dom";
+const isOffer =
+  window.location.hostname === "oferta.ironair.com.br" ||
+  new URLSearchParams(window.location.search).get("surface") === "offer";
 
-// Browser automation/debugging tools may inject their overlay as a direct child
-// of <html> before React starts. Remove only that known development overlay so
-// it cannot invalidate the server-rendered document during hydration.
-const codexOverlay = document.getElementById("codex-agent-overlay-root");
-if (codexOverlay?.parentElement === document.documentElement) {
-  codexOverlay.remove();
-}
+if (!isOffer) {
+  import("./hydrate.client");
+} else {
+  const events = ["pointerdown", "keydown", "touchstart", "scroll"];
+  let timer;
 
-startTransition(() => {
-  hydrateRoot(
-    document,
-    <StrictMode>
-      <HydratedRouter />
-    </StrictMode>,
+  const hydrate = () => {
+    events.forEach((eventName) =>
+      window.removeEventListener(eventName, hydrate),
+    );
+    window.clearTimeout(timer);
+    import("./hydrate.client");
+  };
+
+  events.forEach((eventName) =>
+    window.addEventListener(eventName, hydrate, {
+      once: true,
+      passive: true,
+    }),
   );
-});
+  timer = window.setTimeout(hydrate, 15000);
+}

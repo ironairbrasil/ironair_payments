@@ -39,20 +39,6 @@ export function links() {
     {
       rel: "preload",
       as: "image",
-      href: "/images/optimized/hero-background-768.avif",
-      media: "(max-width: 800px)",
-      fetchPriority: "high",
-    },
-    {
-      rel: "preload",
-      as: "image",
-      href: "/images/optimized/hero-background-1536.avif",
-      media: "(min-width: 801px)",
-      fetchPriority: "high",
-    },
-    {
-      rel: "preload",
-      as: "image",
       href: "/images/optimized/iron-air-shirt-500.avif",
       media: "(max-width: 800px)",
       fetchPriority: "high",
@@ -69,14 +55,26 @@ export function links() {
 
 export function meta() {
   return [
-    { title: "Iron Air | Suas roupas falam antes de você" },
+    { title: "Iron Air Brasil" },
     {
       name: "description",
-      content:
-        "Conheça o Iron Air e cuide das suas roupas com mais praticidade no dia a dia.",
+      content: "A máquina que passa suas roupas para você.",
     },
-    { property: "og:title", content: "Suas roupas falam antes de você." },
-    { property: "og:type", content: "product" },
+    { property: "og:title", content: "Iron Air Brasil" },
+    {
+      property: "og:description",
+      content: "A máquina que passa suas roupas para você.",
+    },
+    {
+      property: "og:image",
+      content: "https://oferta.ironair.com.br/wpp-image-link.webp",
+    },
+    { property: "og:image:width", content: "1254" },
+    { property: "og:image:height", content: "1254" },
+    { property: "og:image:type", content: "image/webp" },
+    { property: "og:url", content: "https://oferta.ironair.com.br/" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
   ];
 }
 
@@ -121,23 +119,23 @@ const HERO_PRODUCTS = [
 const ACTION_VIDEOS = [
   [
     "https://ironair.com.br/cdn/shop/videos/c/vp/83f5e912327d4d5c96a5956f59631dd8/83f5e912327d4d5c96a5956f59631dd8.HD-1080p-7.2Mbps-86083940.mp4?v=0",
-    "https://ironair.com.br/cdn/shop/files/preview_images/83f5e912327d4d5c96a5956f59631dd8.thumbnail.0000000000_900x.jpg?v=1781016560",
+    "/images/optimized/action/poster-1-560.webp",
   ],
   [
     "https://ironair.com.br/cdn/shop/videos/c/vp/384e7866bf164d0b9bfd70ffebb1860e/384e7866bf164d0b9bfd70ffebb1860e.HD-1080p-7.2Mbps-86101814.mp4?v=0",
-    "https://ironair.com.br/cdn/shop/files/preview_images/384e7866bf164d0b9bfd70ffebb1860e.thumbnail.0000000000_900x.jpg?v=1781025408",
+    "/images/optimized/action/poster-2-560.webp",
   ],
   [
     "https://ironair.com.br/cdn/shop/videos/c/vp/7ff27a4600da444ebdf0dd16f8c7f4fe/7ff27a4600da444ebdf0dd16f8c7f4fe.HD-1080p-7.2Mbps-86101815.mp4?v=0",
-    "https://ironair.com.br/cdn/shop/files/preview_images/WJq89ZZBEF11g-YXsn-wP_loTTd3ZB_00001_900x.jpg?v=1784224691",
+    "/images/optimized/action/poster-3-560.webp",
   ],
   [
     "https://ironair.com.br/cdn/shop/videos/c/vp/3dc19aa84ff5477793699b1b0975a120/3dc19aa84ff5477793699b1b0975a120.HD-1080p-7.2Mbps-89131270.mp4?v=0",
-    "https://ironair.com.br/cdn/shop/files/preview_images/3dc19aa84ff5477793699b1b0975a120.thumbnail.0000000000_900x.jpg?v=1784224396",
+    "/images/optimized/action/poster-4-560.webp",
   ],
   [
     "https://ironair.com.br/cdn/shop/videos/c/vp/1fdd648d46654f7b932d323c7aa84e6d/1fdd648d46654f7b932d323c7aa84e6d.HD-1080p-7.2Mbps-89130546.mp4?v=0",
-    "https://ironair.com.br/cdn/shop/files/preview_images/mulher_image_900x.png?v=1784224163",
+    "/images/optimized/action/poster-5-560.webp",
   ],
 ];
 
@@ -145,34 +143,34 @@ const CUSTOMER_MOMENTS = [
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846522982.mp4",
-    poster: "/media/depoimentos/snapinsta-1787846522982-poster.png",
+    poster: "/media/depoimentos/snapinsta-1787846522982-poster-560.webp",
     label: "Cliente mostrando o Iron Air",
   },
   {
     type: "image",
-    src: "/media/depoimentos/snapinsta-1787846521349.jpg",
+    src: "/media/depoimentos/snapinsta-1787846521349-630.webp",
     label: "Cliente recebendo seu Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846520365.mp4",
-    poster: "/media/depoimentos/snapinsta-1787846520365-poster.png",
+    poster: "/media/depoimentos/snapinsta-1787846520365-poster-560.webp",
     label: "Depoimento em vídeo sobre o Iron Air",
   },
   {
     type: "image",
-    src: "/media/depoimentos/snapinsta-1787846516349.jpg",
+    src: "/media/depoimentos/snapinsta-1787846516349-630.webp",
     label: "Cliente com a caixa do Iron Air",
   },
   {
     type: "video",
     src: "/media/depoimentos/snapinsta-1787846518650.mp4",
-    poster: "/media/depoimentos/snapinsta-1787846518650-poster.png",
+    poster: "/media/depoimentos/snapinsta-1787846518650-poster-560.webp",
     label: "Experiência real com o Iron Air",
   },
   {
     type: "image",
-    src: "/media/depoimentos/snapinsta-1787846522164.jpg",
+    src: "/media/depoimentos/snapinsta-1787846522164-630.webp",
     label: "Pedidos do Iron Air prontos para envio",
   },
   {
@@ -344,7 +342,11 @@ function PaymentMethods({ compact = false }) {
     >
       <span className="payment-label">Pagamento seguro</span>
       <span className="payment-brand visa">VISA</span>
-      <span className="payment-brand mastercard" aria-label="Mastercard">
+      <span
+        className="payment-brand mastercard"
+        role="img"
+        aria-label="Mastercard"
+      >
         <i />
         <i />
       </span>
@@ -943,8 +945,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
               <OptimizedImage
                 name={name}
                 alt={alt}
-                widths={[360, 720]}
-                sizes="(max-width: 800px) 78vw, 390px"
+                widths={[360, 640]}
+                sizes="(max-width: 800px) min(82vw, 360px), clamp(330px, 31vw, 470px)"
                 width={width}
                 height={height}
               />
@@ -1068,17 +1070,6 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
               <article
                 key={src}
                 className={index === activeActionVideo ? "is-active" : ""}
-                onClick={() => {
-                  const track = actionVideosCarousel.current;
-                  const card = track?.querySelectorAll("article")[index];
-                  if (card)
-                    track.scrollTo({
-                      left:
-                        card.offsetLeft -
-                        (track.clientWidth - card.clientWidth) / 2,
-                      behavior: "smooth",
-                    });
-                }}
               >
                 <video
                   src={
@@ -1092,7 +1083,15 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
                   muted
                   preload="none"
                   aria-label={`Iron Air em ação — vídeo ${index + 1}`}
-                />
+                >
+                  <track
+                    kind="captions"
+                    src="/captions/iron-air-em-acao.vtt"
+                    srcLang="pt-BR"
+                    label="Português"
+                    default
+                  />
+                </video>
               </article>
             ))}
           </div>
@@ -1155,7 +1154,9 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
             <div className="side-by-side-head" role="row">
               <span role="columnheader" />
               <span role="columnheader">— Ferro tradicional</span>
-              <strong role="columnheader">Iron Air</strong>
+              <div className="iron-air-column" role="columnheader">
+                <strong>Iron Air</strong>
+              </div>
             </div>
             {SIDE_BY_SIDE_ROWS.map(([Icon, label, traditional, ironAir]) => (
               <div className="side-by-side-row" role="row" key={label}>
@@ -1567,14 +1568,22 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
                   aria-label={moment.label}
                   controls
                   playsInline
-                  preload="metadata"
-                />
+                  preload="none"
+                >
+                  <track
+                    kind="captions"
+                    src="/captions/depoimentos-clientes.vtt"
+                    srcLang="pt-BR"
+                    label="Português"
+                    default
+                  />
+                </video>
               ) : (
                 <img
                   src={moment.src}
                   alt={moment.label}
-                  width="1290"
-                  height="2293"
+                  width="630"
+                  height="1120"
                   loading="lazy"
                   decoding="async"
                 />
@@ -1845,11 +1854,9 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
         href="https://wa.me/553129422740"
         target="_blank"
         rel="noreferrer"
-        aria-label="Falar com a Iron Air pelo WhatsApp"
+        aria-label="Falar com um especialista pelo WhatsApp"
       >
-        <span className="whatsapp-float-label">
-          Falar com um especialista
-        </span>
+        <span className="whatsapp-float-label">Falar com um especialista</span>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12.04 2a9.84 9.84 0 0 0-8.5 14.78L2.05 22l5.35-1.4A9.96 9.96 0 0 0 12.04 22 9.97 9.97 0 0 0 22 12.04 9.96 9.96 0 0 0 12.04 2Zm0 18.32a8.3 8.3 0 0 1-4.24-1.16l-.3-.18-3.18.84.85-3.1-.2-.32a8.2 8.2 0 0 1-1.27-4.36 8.34 8.34 0 1 1 8.34 8.28Zm4.57-6.23c-.25-.13-1.48-.73-1.71-.81-.23-.09-.4-.13-.57.12-.16.25-.65.82-.8.98-.14.17-.29.19-.54.07a6.82 6.82 0 0 1-2.01-1.24 7.57 7.57 0 0 1-1.4-1.74c-.15-.25-.02-.38.11-.5.11-.11.25-.29.38-.44.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.44-.07-.12-.57-1.37-.78-1.87-.2-.5-.41-.43-.57-.44h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.23.9 2.43 1.03 2.6.12.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.43.53.6.19 1.15.16 1.58.1.48-.07 1.48-.61 1.69-1.19.2-.58.2-1.07.14-1.18-.06-.1-.23-.17-.48-.29Z" />
         </svg>

@@ -183,6 +183,7 @@ body:has(.offer-page) {
     min-width: 0;
   }
 }
+
 #comprar {
   scroll-margin-top: 24px;
 }
@@ -935,7 +936,7 @@ body:has(.offer-page) {
   color: #8b8b88;
   font-size: 14px;
 }
-.side-by-side-head strong {
+.side-by-side-head .iron-air-column {
   background: linear-gradient(90deg, #073f34, #00372e);
   color: #fff;
   font-weight: 600;
@@ -1080,6 +1081,16 @@ body:has(.offer-page) {
   .side-by-side-cta {
     margin-top: 24px;
   }
+}
+
+.offer-page .customer-moments-hint,
+.offer-page .purchase-info .payment-label {
+  color: #555;
+  opacity: 1;
+}
+
+.offer-page .purchase-price del {
+  color: #bd2722;
 }
 
 .whatsapp-float {
@@ -1683,6 +1694,11 @@ body:has(.offer-page) {
 }
 .customer-moments-hint {
   display: none;
+  color: #595959;
+}
+
+.purchase-info .payment-label {
+  color: #595959;
 }
 .guarantee {
   display: grid;
@@ -2643,13 +2659,7 @@ body:has(.offer-page) {
   min-height: 650px;
   max-height: none;
   overflow: hidden;
-  background-image: image-set(
-    url("/images/optimized/hero-background-1536.avif") type("image/avif"),
-    url("/images/optimized/hero-background-1536.webp") type("image/webp")
-  );
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: #f4f3ef;
   padding-top: 30px;
 }
 .hero-discovery-cta {
@@ -2784,11 +2794,6 @@ body:has(.offer-page) {
     min-height: 590px;
     max-height: none;
     padding-top: 22px;
-    background-position: center;
-    background-image: image-set(
-      url("/images/optimized/hero-background-768.avif") type("image/avif"),
-      url("/images/optimized/hero-background-768.webp") type("image/webp")
-    );
   }
   .launch-copy > span {
     min-width: 150px;
