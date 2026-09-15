@@ -46,24 +46,6 @@ function Analytics({
     const loadAnalytics = () => {
       cleanup();
 
-      if (deferAnalytics && !document.querySelector('[data-utmify="loaded"]')) {
-        window.pixelId = "6aa1c3454dbf28bfd8efb9a4";
-        [
-          "https://cdn.utmify.com.br/scripts/pixel/pixel.js",
-          "https://cdn.utmify.com.br/scripts/utms/latest.js",
-        ].forEach((src) => {
-          const script = document.createElement("script");
-          script.async = true;
-          script.src = src;
-          script.dataset.utmify = "loaded";
-          if (src.includes("utms/latest.js")) {
-            script.setAttribute("data-utmify-prevent-xcod-sck", "");
-            script.setAttribute("data-utmify-prevent-subids", "");
-          }
-          document.head.appendChild(script);
-        });
-      }
-
       if (clarityProjectId && !window.clarity) {
         window.clarity = (...args) => {
           window.clarity.q = window.clarity.q || [];
@@ -158,6 +140,27 @@ export default function App() {
         />
         <Meta />
         <Links />
+        {deferAnalytics ? (
+          <>
+            <script
+              dangerouslySetInnerHTML={{
+                __html: 'window.pixelId="6aa1c3454dbf28bfd8efb9a4";',
+              }}
+            />
+            <script
+              async
+              defer
+              src="https://cdn.utmify.com.br/scripts/pixel/pixel.js"
+            />
+            <script
+              async
+              defer
+              src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+              data-utmify-prevent-xcod-sck=""
+              data-utmify-prevent-subids=""
+            />
+          </>
+        ) : null}
       </head>
       <body>
         <Analytics
