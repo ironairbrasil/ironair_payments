@@ -334,6 +334,8 @@ const OFFER_TERMS = {
   reviewCount: 4,
 };
 
+const CUSTOMER_WEEK_COMPARE_AT_PRICE = 1999;
+
 function PaymentMethods({ compact = false }) {
   return (
     <div
@@ -483,8 +485,9 @@ function BuyButton({ label = "QUERO MEU IRON AIR", checkout = false, checkoutUrl
 
 export default function OfferLanding({ data, hideLaunchHero = false }) {
   const loaderData = useLoaderData();
-  const { product, payOrigin } = data || loaderData;
+  const { product, payOrigin, campaign } = data || loaderData;
   const location = useLocation();
+  const isCustomerWeek = campaign === "customer-week";
   const shouldHideLaunchHero =
     hideLaunchHero || location.pathname === "/kit-ironair+jaleco";
   const firstAvailable =
@@ -514,6 +517,9 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
   const pixPrice = Number(selected?.price || 0) * (1 - OFFER_TERMS.pixDiscount);
   const installmentPrice =
     Number(selected?.price || 0) / OFFER_TERMS.installments;
+  const compareAtPrice = isCustomerWeek
+    ? CUSTOMER_WEEK_COMPARE_AT_PRICE
+    : selected?.compareAtPrice;
   const periodMultiplier =
     comparisonPeriod === "year" ? COMPARISON_CONFIG.weeksPerYear : 1;
   const traditionalMinutes =
@@ -712,13 +718,34 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
 
   return (
     <main
-      className={`offer-page ${shouldHideLaunchHero ? "kit-offer-page" : ""}`}
+      className={`offer-page ${shouldHideLaunchHero ? "kit-offer-page" : ""} ${isCustomerWeek ? "customer-week-page" : ""}`}
     >
       <header className="promo-bar">
         Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
         10% OFF
       </header>
-      {!shouldHideLaunchHero ? (
+      {isCustomerWeek ? (
+        <section
+          className="customer-week-hero"
+          aria-label="Semana do Cliente Iron Air"
+        >
+          <picture>
+            <source
+              media="(max-width: 800px)"
+              srcSet="/images/campaigns/semana-do-cliente-mobile.webp"
+            />
+            <img
+              src="/images/campaigns/semana-do-cliente-desktop.webp"
+              alt="Iron Air Semana do Cliente. O jeito de passar roupas acaba de mudar."
+              width="2172"
+              height="616"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+            />
+          </picture>
+        </section>
+      ) : !shouldHideLaunchHero ? (
         <section className="launch-hero" aria-labelledby="launch-title">
           <div className="launch-copy">
             <span>LANÇAMENTO</span>
@@ -1668,8 +1695,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
             <small>({OFFER_TERMS.reviewCount} Avaliações)</small>
           </div>
           <div className="purchase-price">
-            {selected?.compareAtPrice ? (
-              <del>{money(selected.compareAtPrice)}</del>
+            {compareAtPrice ? (
+              <del>{money(compareAtPrice)}</del>
             ) : null}
             <strong>{money(pixPrice)}</strong>
             <span className="pix-caption">com 10% OFF no Pix</span>

@@ -2669,6 +2669,17 @@ body:has(.offer-page) {
   padding: 28px 20px 32px;
   background: #f5f4f2;
 }
+.customer-week-hero {
+  background: #f4f3ef;
+}
+.customer-week-hero picture,
+.customer-week-hero img {
+  display: block;
+  width: 100%;
+}
+.customer-week-hero img {
+  height: auto;
+}
 .hero-discovery-cta .offer-cta svg,
 .side-by-side-cta .offer-cta svg {
   display: none;
