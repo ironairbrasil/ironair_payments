@@ -467,6 +467,20 @@ function AnimatedNumber({ value, digits = 0 }) {
   );
 }
 
+function BuyButton({ label = "QUERO MEU IRON AIR", checkout = false, checkoutUrl, available, buy, goToPurchase }) {
+  return (
+    <a
+      className={`offer-cta ${checkout ? "is-checkout" : ""} ${checkout && !available ? "is-disabled" : ""}`}
+      href={checkout ? checkoutUrl : "#comprar"}
+      onClick={checkout ? buy : goToPurchase}
+      aria-disabled={checkout && !available}
+    >
+      {checkout && !available ? "INDISPONÍVEL NESTA VOLTAGEM" : label}
+      <ArrowRight size={20} />
+    </a>
+  );
+}
+
 export default function OfferLanding({ data, hideLaunchHero = false }) {
   const loaderData = useLoaderData();
   const { product, payOrigin } = data || loaderData;
@@ -693,17 +707,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
     });
   }
 
-  const BuyButton = ({ label = "QUERO MEU IRON AIR", checkout = false }) => (
-    <a
-      className={`offer-cta ${checkout ? "is-checkout" : ""} ${checkout && !selected?.available ? "is-disabled" : ""}`}
-      href={checkout ? checkoutUrl : "#comprar"}
-      onClick={checkout ? buy : goToPurchase}
-      aria-disabled={checkout && !selected?.available}
-    >
-      {checkout && !selected?.available ? "INDISPONÍVEL NESTA VOLTAGEM" : label}
-      <ArrowRight size={20} />
-    </a>
-  );
+  const buyButtonProps = { checkoutUrl, available: selected?.available, buy, goToPurchase };
+
 
   return (
     <main
@@ -788,7 +793,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
 
       {!shouldHideLaunchHero ? (
         <div className="hero-discovery-cta">
-          <BuyButton label="CONHECER O IRON AIR" />
+          <BuyButton {...buyButtonProps} label="CONHECER O IRON AIR" />
         </div>
       ) : null}
 
@@ -830,7 +835,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
             )}
           </div>
 
-          <BuyButton label="QUERO MEU KIT IRON AIR" />
+          <BuyButton {...buyButtonProps} label="QUERO MEU KIT IRON AIR" />
           <small className="kit-vsl-note">
             Escolha a voltagem e finalize sua compra com segurança.
           </small>
@@ -1181,7 +1186,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
             <strong>É outra forma de passar roupa.</strong>
           </p>
           <div className="side-by-side-cta">
-            <BuyButton label="CONHECER O IRON AIR" />
+            <BuyButton {...buyButtonProps} label="CONHECER O IRON AIR" />
           </div>
         </div>
       </section>
@@ -1440,7 +1445,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
             <span>
               O Iron Air foi criado para devolver esse tempo para você.
             </span>
-            <BuyButton />
+            <BuyButton {...buyButtonProps} />
           </div>
           <div className="result-copy">
             <p className="eyebrow">SEU RESULTADO</p>
@@ -1456,7 +1461,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
               melhor.
             </p>
             <strong>Deveria fazer a tarefa por você.</strong>
-            <BuyButton />
+            <BuyButton {...buyButtonProps} />
           </div>
           <details className="methodology">
             <summary>Como calculamos?</summary>
@@ -1691,7 +1696,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
               </button>
             ))}
           </div>
-          <BuyButton label="COMPRAR AGORA" checkout />
+          <BuyButton {...buyButtonProps} label="COMPRAR AGORA" checkout />
           <PaymentMethods compact />
         </div>
         <div className="purchase-details">
