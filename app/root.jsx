@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
 import process from "node:process";
 import { useEffect } from "react";
+import { offerPixelBootstrap } from "./utils/offer-pixel-bootstrap";
 import {
   Links,
   Meta,
@@ -144,13 +145,8 @@ export default function App() {
           <>
             <script
               dangerouslySetInnerHTML={{
-                __html: 'window.pixelId="6aa1c3454dbf28bfd8efb9a4";',
+                __html: offerPixelBootstrap,
               }}
-            />
-            <script
-              async
-              defer
-              src="https://cdn.utmify.com.br/scripts/pixel/pixel.js"
             />
             <script
               async

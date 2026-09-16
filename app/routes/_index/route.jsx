@@ -1,9 +1,8 @@
 import { data, redirect, Form, useLoaderData } from "react-router";
+import { lazy, Suspense } from "react";
 
-import IronAirCheckout, {
-  loader as checkoutLoader,
-  links as checkoutLinks,
-} from "../checkout-ironair";
+import { loader as checkoutLoader } from "../checkout-ironair";
+import checkoutStyles from "../../styles/checkout-ironair.css?url";
 import OfferLanding, {
   loader as offerLoader,
   links as offerLinks,
@@ -13,6 +12,7 @@ import { login } from "../../shopify.server";
 
 const PAY_HOSTS = new Set(["pay.ironair.com.br"]);
 const OFFER_HOSTS = new Set(["oferta.ironair.com.br"]);
+const IronAirCheckout = lazy(() => import("../checkout-ironair"));
 
 function requestHostname(request) {
   const forwarded = request.headers
@@ -87,10 +87,10 @@ export default function Index() {
   if (data.surface === "pay") {
     return (
       <>
-        {checkoutLinks().map((link) => (
-          <link key={link.href} {...link} />
-        ))}
-        <IronAirCheckout />
+        <link rel="stylesheet" href={checkoutStyles} />
+        <Suspense fallback={<p role="status">Carregando checkout…</p>}>
+          <IronAirCheckout />
+        </Suspense>
       </>
     );
   }
