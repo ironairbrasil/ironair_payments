@@ -101,13 +101,34 @@ test("rejects mismatched payment identity, reference, customer, and total", () =
     installmentTotalValue: 1499,
   };
   assert.doesNotThrow(() => assertPaymentMatchesMappedOrder(order, valid));
-  assert.throws(() => assertPaymentMatchesMappedOrder(order, { ...valid, id: "pay_other" }), /ID_MISMATCH/);
+  assert.throws(
+    () => assertPaymentMatchesMappedOrder(order, { ...valid, id: "pay_other", externalReference: "order-2" }),
+    /ID_MISMATCH/,
+  );
   assert.throws(() => assertPaymentMatchesMappedOrder(order, { ...valid, externalReference: "order-2" }), /EXTERNAL_REFERENCE_MISMATCH/);
   assert.throws(() => assertPaymentMatchesMappedOrder(order, { ...valid, customer: "cus_2" }), /CUSTOMER_MISMATCH/);
   assert.throws(() => assertPaymentMatchesMappedOrder(order, { ...valid, installmentTotalValue: 1498.99 }), /VALUE_MISMATCH/);
   assert.throws(() => assertPaymentMatchesMappedOrder(order, { ...valid, externalReference: undefined }), /EXTERNAL_REFERENCE_MISMATCH/);
   assert.throws(() => assertPaymentMatchesMappedOrder(order, { ...valid, customer: undefined }), /CUSTOMER_MISMATCH/);
   assert.equal(moneyInCents(1499), 149900);
+});
+
+test("accepts installment payment ids when the external reference still matches", () => {
+  const order = {
+    asaasPaymentId: "pay_first_installment",
+    externalReference: "order-1",
+    asaasCustomerId: "cus_1",
+    value: 1499,
+  };
+  const laterInstallment = {
+    id: "pay_later_installment",
+    externalReference: "order-1",
+    customer: "cus_1",
+    value: 149.9,
+    installmentTotalValue: 1499,
+  };
+
+  assert.doesNotThrow(() => assertPaymentMatchesMappedOrder(order, laterInstallment));
 });
 
 test("only accepts the current approved Asaas states", () => {

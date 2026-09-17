@@ -1397,13 +1397,17 @@ export async function completeDraftOrderForAsaasPayment(
     externalReference,
   } = {},
 ) {
-  const mappedOrder = asaasPaymentId
-    ? await prisma.asaasShopifyOrder.findUnique({ where: { asaasPaymentId } })
-    : asaasCheckoutId
-      ? await prisma.asaasShopifyOrder.findUnique({ where: { asaasCheckoutId } })
-      : externalReference
-        ? await prisma.asaasShopifyOrder.findUnique({ where: { externalReference } })
-        : null;
+  const candidates = [
+    asaasPaymentId ? { asaasPaymentId } : null,
+    asaasCheckoutId ? { asaasCheckoutId } : null,
+    externalReference ? { externalReference } : null,
+  ].filter(Boolean);
+  let mappedOrder = null;
+
+  for (const where of candidates) {
+    mappedOrder = await prisma.asaasShopifyOrder.findUnique({ where });
+    if (mappedOrder) break;
+  }
 
   if (!mappedOrder) {
     console.warn("[SHOPIFY DRAFT ORDER MISSING]", {

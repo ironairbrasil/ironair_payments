@@ -26,7 +26,12 @@ export function assertPaymentIdentityMatchesMappedOrder(mappedOrder, payment) {
     throw new Error("PAYMENT_ORDER_MAPPING_REQUIRED");
   }
 
-  if (mappedOrder.asaasPaymentId !== payment.id) {
+  const samePaymentId = mappedOrder.asaasPaymentId === payment.id;
+  const sameExternalReference =
+    mappedOrder.externalReference &&
+    mappedOrder.externalReference === payment.externalReference;
+
+  if (!samePaymentId && !sameExternalReference) {
     throw new Error("PAYMENT_ORDER_ID_MISMATCH");
   }
 
