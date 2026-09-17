@@ -818,7 +818,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
         </section>
       ) : null}
 
-      {!shouldHideLaunchHero ? (
+      {!shouldHideLaunchHero && !isCustomerWeek ? (
         <div className="hero-discovery-cta">
           <BuyButton {...buyButtonProps} label="CONHECER O IRON AIR" />
         </div>
