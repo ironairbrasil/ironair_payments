@@ -158,6 +158,32 @@ export function paymentDueDate(value, issueDate) {
     : issueDate;
 }
 
+function addMonthsIsoDate(value, months) {
+  const date = String(value || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const [year, month, day] = date.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+
+  return target.toISOString().slice(0, 10);
+}
+
+export function firstInstallmentDueDate(payment, issueDate) {
+  const dueDate = paymentDueDate(payment?.dueDate, issueDate);
+  const installmentNumber = Number(payment?.installmentNumber || 1);
+
+  if (!Number.isInteger(installmentNumber) || installmentNumber <= 1) {
+    return dueDate;
+  }
+
+  const firstDueDate = addMonthsIsoDate(dueDate, -(installmentNumber - 1));
+  return paymentDueDate(firstDueDate, issueDate);
+}
+
 export function baseOrderIssueDate(mappedOrder, payment) {
   const candidates = [
     payment?.dateCreated,
@@ -185,9 +211,9 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
     typeOfShipping: "SEM_FRETE",
     orderItems: [financial.orderItem],
     orderPayments: [{
-      // Keep the original charge fields unchanged. Base permits linking a
-      // confirmed Asaas charge, but rejects any attempt to alter its value or date.
-      dueDate: payment.dueDate,
+      // Base expands numberInstallments from this first due date. Asaas webhooks
+      // can arrive for a later installment, so normalize back to installment 1.
+      dueDate: firstInstallmentDueDate(payment, issueDate),
       value: financial.asaasInstallmentValue,
       bankId,
       billingType: billingType(payment.billingType),

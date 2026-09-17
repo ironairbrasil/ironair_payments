@@ -11,6 +11,7 @@ import {
   baseSalesOrderPayload,
   billingType,
   customerPayload,
+  firstInstallmentDueDate,
   mappedProduct,
   paymentDueDate,
 } from "../app/services/base-order-sync.server.js";
@@ -28,7 +29,7 @@ test("links Base payments to the existing Asaas installment instead of creating 
   assert.equal(financial.asaasInstallmentValue, 124.91);
 });
 
-test("links the Base order without changing the confirmed Asaas receivable", () => {
+test("links the Base order without sending a due date before the issue date", () => {
   const financial = baseFinancialPayload(
     { value: 1499, discountAmount: 0, shippingPrice: 0 },
     { id: "pay_confirmed", value: 749.5, installmentCount: 2 },
@@ -49,9 +50,40 @@ test("links the Base order without changing the confirmed Asaas receivable", () 
   assert.equal(payload.externalReference, "asaas:pay_confirmed");
   assert.equal(payload.orderItems[0].unitPrice, 1499);
   assert.equal(payload.orderPayments[0].paymentId, "pay_confirmed");
-  assert.equal(payload.orderPayments[0].dueDate, "2026-09-11");
+  assert.equal(payload.orderPayments[0].dueDate, "2026-09-13");
   assert.equal(payload.orderPayments[0].value, 749.5);
   assert.equal(payload.orderPayments[0].numberInstallments, 2);
+});
+
+test("starts Base installments from the first Asaas installment due date", () => {
+  assert.equal(
+    firstInstallmentDueDate(
+      { dueDate: "2027-06-17", installmentNumber: 10 },
+      "2026-09-17",
+    ),
+    "2026-09-17",
+  );
+
+  const financial = baseFinancialPayload(
+    { value: 1499, discountAmount: 0, shippingPrice: 0 },
+    { id: "pay_installment_10", value: 149.9, installmentCount: 10 },
+    { productId: 100704254, quantity: 1, unitPrice: 1499 },
+  );
+  const payload = baseSalesOrderPayload({
+    issueDate: "2026-09-17",
+    baseCustomerId: 120893258,
+    bankId: 1001,
+    payment: {
+      id: "pay_installment_10",
+      dueDate: "2027-06-17",
+      installmentNumber: 10,
+      billingType: "CREDIT_CARD",
+    },
+    financial,
+  });
+
+  assert.equal(payload.orderPayments[0].dueDate, "2026-09-17");
+  assert.equal(payload.orderPayments[0].numberInstallments, 10);
 });
 
 test("uses the original payment date when retrying a Base order later", () => {
