@@ -29,6 +29,18 @@ test("links Base payments to the existing Asaas installment instead of creating 
   assert.equal(financial.asaasInstallmentValue, 124.91);
 });
 
+test("syncs Pix discounted orders using the paid net item price", () => {
+  const financial = baseFinancialPayload(
+    { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },
+    { id: "pay_pix_discount", value: 1349.1, installmentCount: 1 },
+    { productId: 100704254, quantity: 1, unitPrice: 1499 },
+  );
+
+  assert.equal(financial.orderItem.unitPrice, 1349.1);
+  assert.equal(financial.orderPaymentValue, 1349.1);
+  assert.equal(financial.asaasInstallmentValue, 1349.1);
+});
+
 test("links the Base order without sending a due date before the issue date", () => {
   const financial = baseFinancialPayload(
     { value: 1499, discountAmount: 0, shippingPrice: 0 },

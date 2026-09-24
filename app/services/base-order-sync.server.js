@@ -122,18 +122,22 @@ export function baseFinancialPayload(mappedOrder, payment, product) {
     throw new Error("BASE_FINANCIAL_TOTAL_MISMATCH");
   }
   // The locally available Base contract only proves support for item unitPrice
-  // and payment value. Until sandbox validates native adjustment fields, do not
-  // silently encode discount or freight only in observations.
-  if (Math.round(discountAmount * 100) !== 0 || Math.round(shippingAmount * 100) !== 0) {
+  // and payment value. Represent Pix discounts in the item net unit price so
+  // Base can create the sales order and NF-e from the amount actually paid.
+  if (Math.round(shippingAmount * 100) !== 0) {
     throw new Error("BASE_ADJUSTMENTS_UNSUPPORTED_BY_VERIFIED_CONTRACT");
   }
+  const baseItemUnitPrice =
+    Math.round(discountAmount * 100) === 0
+      ? unitPrice
+      : saleTotal / quantity;
 
   return {
     saleTotal,
     orderItem: {
       productId: product.productId,
       quantity: product.quantity,
-      unitPrice,
+      unitPrice: Number(baseItemUnitPrice.toFixed(2)),
     },
     orderPaymentValue: saleTotal,
     asaasPaymentId: String(payment.id || ""),

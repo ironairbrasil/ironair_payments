@@ -56,15 +56,15 @@ test("keeps product unit price and sends the full sale total to Base", () => {
   assert.equal(financial.installmentCount, 12);
 });
 
-test("fails closed when the verified Base contract cannot represent a Pix discount", () => {
-  assert.throws(
-    () => baseFinancialPayload(
-      { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },
-      { value: 1349.1 },
-      { productId: 1, quantity: 1, unitPrice: 1499 },
-    ),
-    /ADJUSTMENTS_UNSUPPORTED_BY_VERIFIED_CONTRACT/,
+test("represents a Pix discount as the net Base item unit price", () => {
+  const financial = baseFinancialPayload(
+    { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },
+    { value: 1349.1 },
+    { productId: 1, quantity: 1, unitPrice: 1499 },
   );
+
+  assert.equal(financial.orderItem.unitPrice, 1349.1);
+  assert.equal(financial.orderPaymentValue, 1349.1);
 });
 
 test("fails closed when the verified Base contract cannot represent freight", () => {
