@@ -683,7 +683,8 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
   }, [location.search, payOrigin, product, selected]);
 
   function buy(event) {
-    if (!selected?.available) event.preventDefault();
+    event.preventDefault();
+    if (!selected?.available) return;
     if (typeof window !== "undefined") {
       window.fbq?.("track", "InitiateCheckout", {
         content_ids: [selected?.numericId],
@@ -702,6 +703,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
           },
         ],
       });
+      window.location.assign(checkoutUrl);
     }
   }
 
