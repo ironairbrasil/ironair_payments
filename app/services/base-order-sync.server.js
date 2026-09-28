@@ -203,6 +203,19 @@ export function baseOrderIssueDate(mappedOrder, payment) {
 }
 
 export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payment, financial }) {
+  const paymentPayload = {
+    // Base expands numberInstallments from this first due date. Asaas webhooks
+    // can arrive for a later installment, so normalize back to installment 1.
+    dueDate: firstInstallmentDueDate(payment, issueDate),
+    value: financial.asaasInstallmentValue,
+    bankId,
+    billingType: billingType(payment.billingType),
+    numberInstallments: financial.installmentCount,
+  };
+  if (paymentPayload.billingType !== "CREDIT_CARD") {
+    paymentPayload.paymentId = financial.asaasPaymentId;
+  }
+
   return {
     issueDate,
     customerId: baseCustomerId,
@@ -214,16 +227,7 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
     ].join(" | "),
     typeOfShipping: "SEM_FRETE",
     orderItems: [financial.orderItem],
-    orderPayments: [{
-      // Base expands numberInstallments from this first due date. Asaas webhooks
-      // can arrive for a later installment, so normalize back to installment 1.
-      dueDate: firstInstallmentDueDate(payment, issueDate),
-      value: financial.asaasInstallmentValue,
-      bankId,
-      billingType: billingType(payment.billingType),
-      paymentId: financial.asaasPaymentId,
-      numberInstallments: financial.installmentCount,
-    }],
+    orderPayments: [paymentPayload],
   };
 }
 

@@ -41,7 +41,7 @@ test("syncs Pix discounted orders using the paid net item price", () => {
   assert.equal(financial.asaasInstallmentValue, 1349.1);
 });
 
-test("links the Base order without sending a due date before the issue date", () => {
+test("creates Base card receivables without editing confirmed Asaas charges", () => {
   const financial = baseFinancialPayload(
     { value: 1499, discountAmount: 0, shippingPrice: 0 },
     { id: "pay_confirmed", value: 749.5, installmentCount: 2 },
@@ -61,10 +61,32 @@ test("links the Base order without sending a due date before the issue date", ()
 
   assert.equal(payload.externalReference, "asaas:pay_confirmed");
   assert.equal(payload.orderItems[0].unitPrice, 1499);
-  assert.equal(payload.orderPayments[0].paymentId, "pay_confirmed");
+  assert.equal(payload.orderPayments[0].paymentId, undefined);
   assert.equal(payload.orderPayments[0].dueDate, "2026-09-13");
   assert.equal(payload.orderPayments[0].value, 749.5);
   assert.equal(payload.orderPayments[0].numberInstallments, 2);
+});
+
+test("links Base Pix payments to the existing Asaas charge", () => {
+  const financial = baseFinancialPayload(
+    { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },
+    { id: "pay_pix", value: 1349.1, installmentCount: 1 },
+    { productId: 100704254, quantity: 1, unitPrice: 1499 },
+  );
+  const payload = baseSalesOrderPayload({
+    issueDate: "2026-09-24",
+    baseCustomerId: 121126438,
+    bankId: 1001,
+    payment: {
+      id: "pay_pix",
+      dueDate: "2026-09-24",
+      billingType: "PIX",
+    },
+    financial,
+  });
+
+  assert.equal(payload.orderPayments[0].paymentId, "pay_pix");
+  assert.equal(payload.orderPayments[0].billingType, "PIX");
 });
 
 test("starts Base installments from the first Asaas installment due date", () => {
