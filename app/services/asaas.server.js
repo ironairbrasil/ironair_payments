@@ -543,6 +543,22 @@ export async function handleAsaasWebhook(payload) {
     status: payment?.status ?? checkout?.status,
   });
 
+  if (event === "PAYMENT_DELETED" && paymentId) {
+    const mappedOrder = await prisma.asaasShopifyOrder.findUnique({
+      where: { asaasPaymentId: paymentId },
+    });
+    if (mappedOrder && mappedOrder.status !== "PAID") {
+      await prisma.asaasShopifyOrder.update({
+        where: { id: mappedOrder.id },
+        data: {
+          status: "DELETED",
+          shippingStatus: "BLOCKED_PAYMENT_INACTIVE",
+        },
+      });
+    }
+    return { ...result, status: "DELETED" };
+  }
+
   if (paymentId) {
     const paymentSnapshot = await getAsaasPayment(paymentId);
     const currentStatus = String(paymentSnapshot?.status || "").toUpperCase();
