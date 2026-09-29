@@ -162,6 +162,14 @@ export function paymentDueDate(value, issueDate) {
     : issueDate;
 }
 
+export function assertBasePaymentSyncIsSafe(payment) {
+  if (billingType(payment?.billingType) !== "CREDIT_CARD") return;
+
+  throw new Error(
+    "BASE_CREDIT_CARD_SYNC_UNSAFE: refusing to create an unlinked Base card receivable for an Asaas charge",
+  );
+}
+
 function addMonthsIsoDate(value, months) {
   const date = String(value || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -203,6 +211,8 @@ export function baseOrderIssueDate(mappedOrder, payment) {
 }
 
 export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payment, financial }) {
+  assertBasePaymentSyncIsSafe(payment);
+
   const paymentPayload = {
     // Base expands numberInstallments from this first due date. Asaas webhooks
     // can arrive for a later installment, so normalize back to installment 1.
@@ -212,9 +222,7 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
     billingType: billingType(payment.billingType),
     numberInstallments: financial.installmentCount,
   };
-  if (paymentPayload.billingType !== "CREDIT_CARD") {
-    paymentPayload.paymentId = financial.asaasPaymentId;
-  }
+  paymentPayload.paymentId = financial.asaasPaymentId;
 
   return {
     issueDate,
@@ -258,6 +266,7 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
     // Validate accounting before customer lookup/update, because customer
     // resolution itself may write to Base.
     const financial = baseFinancialPayload(mappedOrder, payment, product);
+    assertBasePaymentSyncIsSafe(payment);
     const baseCustomerId = await resolveBaseCustomer(customer);
     const externalReference = `asaas:${payment.id}`;
     const existing = getContent(await getBaseOrders({ externalReference, page: "0", size: "2" }));

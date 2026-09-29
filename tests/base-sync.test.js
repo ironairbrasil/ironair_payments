@@ -6,6 +6,7 @@ import {
   parseProductMap,
 } from "../app/config/base.server.js";
 import {
+  assertBasePaymentSyncIsSafe,
   baseFinancialPayload,
   baseOrderIssueDate,
   baseSalesOrderPayload,
@@ -41,30 +42,31 @@ test("syncs Pix discounted orders using the paid net item price", () => {
   assert.equal(financial.asaasInstallmentValue, 1349.1);
 });
 
-test("creates Base card receivables without editing confirmed Asaas charges", () => {
+test("blocks Base card receivables that would create duplicate Asaas installments", () => {
   const financial = baseFinancialPayload(
     { value: 1499, discountAmount: 0, shippingPrice: 0 },
     { id: "pay_confirmed", value: 749.5, installmentCount: 2 },
     { productId: 100704254, quantity: 1, unitPrice: 1499 },
   );
-  const payload = baseSalesOrderPayload({
-    issueDate: "2026-09-13",
-    baseCustomerId: 120705151,
-    bankId: 1001,
-    payment: {
-      id: "pay_confirmed",
-      dueDate: "2026-09-11",
-      billingType: "CREDIT_CARD",
-    },
-    financial,
-  });
 
-  assert.equal(payload.externalReference, "asaas:pay_confirmed");
-  assert.equal(payload.orderItems[0].unitPrice, 1499);
-  assert.equal(payload.orderPayments[0].paymentId, undefined);
-  assert.equal(payload.orderPayments[0].dueDate, "2026-09-13");
-  assert.equal(payload.orderPayments[0].value, 749.5);
-  assert.equal(payload.orderPayments[0].numberInstallments, 2);
+  assert.throws(
+    () => assertBasePaymentSyncIsSafe({ billingType: "CREDIT_CARD" }),
+    /BASE_CREDIT_CARD_SYNC_UNSAFE/,
+  );
+  assert.throws(
+    () => baseSalesOrderPayload({
+      issueDate: "2026-09-13",
+      baseCustomerId: 120705151,
+      bankId: 1001,
+      payment: {
+        id: "pay_confirmed",
+        dueDate: "2026-09-11",
+        billingType: "CREDIT_CARD",
+      },
+      financial,
+    }),
+    /BASE_CREDIT_CARD_SYNC_UNSAFE/,
+  );
 });
 
 test("links Base Pix payments to the existing Asaas charge", () => {
@@ -111,7 +113,7 @@ test("starts Base installments from the first Asaas installment due date", () =>
       id: "pay_installment_10",
       dueDate: "2027-06-17",
       installmentNumber: 10,
-      billingType: "CREDIT_CARD",
+      billingType: "PIX",
     },
     financial,
   });
