@@ -840,20 +840,20 @@ export default function IronAirCheckout() {
           throw new Error(data.error || "Não foi possível cotar o frete.");
         }
 
-        const sedexOption = Array.isArray(data.options)
+        const pacOption = Array.isArray(data.options)
           ? data.options.find(
               (option) =>
-                String(option.service || "").toUpperCase() === "SEDEX" &&
+                String(option.service || "").toUpperCase() === "PAC" &&
                 Number(option.price) >= 0,
             )
           : null;
 
-        if (!sedexOption) {
+        if (!pacOption) {
           throw new Error("Não foi possível calcular o frete grátis para este CEP.");
         }
 
         setSelectedShippingOption({
-          ...sedexOption,
+          ...pacOption,
           destinationCep,
         });
         setShippingQuotedCep(destinationCep);
