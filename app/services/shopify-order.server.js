@@ -3,6 +3,7 @@ import { getAsaasConfig } from "../config/asaas.server";
 import { unauthenticated } from "../shopify.server";
 import { FREE_SHIPPING_TITLE } from "./free-shipping.server";
 import { assertShopifyInventoryAvailable } from "./shopify-inventory";
+import { sendMetaPurchaseForPaidOrder } from "./meta-capi.server";
 import {
   assertAsaasPaymentApproved,
   assertPaymentMatchesMappedOrder,
@@ -17,6 +18,18 @@ const PREORDER_TYPE = "preorder";
 
 function isPreorderShippingOption(shippingOption) {
   return String(shippingOption?.serviceCode || "").toUpperCase() === "PREORDER";
+}
+
+async function sendMetaPurchaseWithoutBlockingOrder(orderId) {
+  try {
+    return await sendMetaPurchaseForPaidOrder(orderId);
+  } catch (error) {
+    console.warn("[meta capi] Purchase side effect failed without blocking order.", {
+      orderId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { success: false, retryable: true, error: "META_CAPI_SIDE_EFFECT_FAILED" };
+  }
 }
 
 function assertNoShopifyUserErrors(operation, userErrors) {
@@ -1180,6 +1193,7 @@ export async function attachAsaasPaymentToDraftOrder({
   customer,
   shippingAddress,
   checkoutItems,
+  tracking,
   shippingOption,
   couponCode,
   discountAmount,
@@ -1228,6 +1242,7 @@ export async function attachAsaasPaymentToDraftOrder({
               customer: customer || null,
               shippingAddress: shippingAddress || null,
               items: checkoutItems || [],
+              tracking: tracking || null,
             }
           : undefined,
       },
@@ -1320,6 +1335,7 @@ export async function attachAsaasPaymentToDraftOrder({
               customer: customer || null,
               shippingAddress: shippingAddress || null,
               items: checkoutItems || [],
+              tracking: tracking || null,
             }
           : undefined,
       },
@@ -1439,6 +1455,8 @@ export async function completeDraftOrderForAsaasPayment(
         data: { shippingStatus: "AWAITING_LABEL" },
       });
     }
+
+    await sendMetaPurchaseWithoutBlockingOrder(mappedOrder.id);
 
     return mappedOrder;
   }
@@ -1677,6 +1695,8 @@ export async function completeDraftOrderForAsaasPayment(
   const updatedOrder = await prisma.asaasShopifyOrder.findUnique({
     where: { id: mappedOrder.id },
   });
+
+  await sendMetaPurchaseWithoutBlockingOrder(mappedOrder.id);
 
   console.log("[SHOPIFY ORDER CREATED]", {
     draftOrder: draftOrder.name,

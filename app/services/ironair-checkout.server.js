@@ -81,7 +81,15 @@ async function ensureDatabaseAvailable() {
   throw unavailableError;
 }
 const ATTRIBUTION_KEYS = [
-  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "fbclid",
+  "gclid",
+  "_fbp",
+  "_fbc",
 ];
 
 function onlyDigits(value) {
@@ -499,6 +507,10 @@ export async function createIronAirCheckout(payload, options = {}) {
       customer: normalizedPayload.customer,
       shippingAddress: normalizedPayload.shippingAddress,
       checkoutItems: verifiedItems,
+      tracking: {
+        clientIp: options.remoteIp || "",
+        userAgent: options.userAgent || "",
+      },
       shippingOption: normalizedPayload.shippingOption,
       couponCode: draftResult.discount?.couponCode || null,
       discountAmount: draftResult.discount?.discountAmount || 0,

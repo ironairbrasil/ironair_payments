@@ -14,6 +14,7 @@ import {
   customerPayload,
   firstInstallmentDueDate,
   mappedProduct,
+  nextBaseOrderNumber,
   paymentDueDate,
 } from "../app/services/base-order-sync.server.js";
 
@@ -42,30 +43,44 @@ test("syncs Pix discounted orders using the paid net item price", () => {
   assert.equal(financial.asaasInstallmentValue, 1349.1);
 });
 
-test("blocks Base card receivables that would create duplicate Asaas installments", () => {
+test("syncs Base card orders using the existing Asaas installment", () => {
   const financial = baseFinancialPayload(
     { value: 1499, discountAmount: 0, shippingPrice: 0 },
     { id: "pay_confirmed", value: 749.5, installmentCount: 2 },
     { productId: 100704254, quantity: 1, unitPrice: 1499 },
   );
 
-  assert.throws(
-    () => assertBasePaymentSyncIsSafe({ billingType: "CREDIT_CARD" }),
-    /BASE_CREDIT_CARD_SYNC_UNSAFE/,
-  );
-  assert.throws(
-    () => baseSalesOrderPayload({
-      issueDate: "2026-09-13",
-      baseCustomerId: 120705151,
-      bankId: 1001,
-      payment: {
-        id: "pay_confirmed",
-        dueDate: "2026-09-11",
-        billingType: "CREDIT_CARD",
-      },
-      financial,
+  assert.doesNotThrow(() => assertBasePaymentSyncIsSafe({ billingType: "CREDIT_CARD" }));
+
+  const payload = baseSalesOrderPayload({
+    issueDate: "2026-09-13",
+    baseCustomerId: 120705151,
+    bankId: 1001,
+    payment: {
+      id: "pay_confirmed",
+      dueDate: "2026-09-13",
+      billingType: "CREDIT_CARD",
+    },
+    financial,
+  });
+
+  assert.equal(payload.orderPayments[0].paymentId, "pay_confirmed");
+  assert.equal(payload.orderPayments[0].billingType, "CREDIT_CARD");
+  assert.equal(payload.orderPayments[0].value, 749.5);
+  assert.equal(payload.orderPayments[0].numberInstallments, 2);
+});
+
+test("reserves the next Base order number from the highest listed number", () => {
+  assert.equal(
+    nextBaseOrderNumber({
+      content: [
+        { number: 14 },
+        { number: 20 },
+        { number: "19" },
+        { number: null },
+      ],
     }),
-    /BASE_CREDIT_CARD_SYNC_UNSAFE/,
+    21,
   );
 });
 

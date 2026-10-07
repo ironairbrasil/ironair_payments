@@ -56,7 +56,11 @@ export const loader = async (args) => {
     url.searchParams.get("surface") === "offer"
   ) {
     return data(
-      { surface: "offer", ...(await offerLoader(args)) },
+      {
+        surface: "offer",
+        leadWithPurchase: url.pathname === "/ironair",
+        ...(await offerLoader(args)),
+      },
       {
         headers: {
           "Cache-Control": "public, max-age=0, must-revalidate",
@@ -83,7 +87,9 @@ export const loader = async (args) => {
 export default function Index() {
   const data = useLoaderData();
 
-  if (data.surface === "offer") return <OfferLanding data={data} />;
+  if (data.surface === "offer") {
+    return <OfferLanding data={data} leadWithPurchase={data.leadWithPurchase} />;
+  }
   if (data.surface === "pay") {
     return (
       <>

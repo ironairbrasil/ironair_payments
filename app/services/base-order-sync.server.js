@@ -8,6 +8,8 @@ import {
   updateBaseCustomer,
 } from "./base.server.js";
 
+const BASE_ORDER_SEQUENCE_LOCK_ID = 72441037;
+
 const digits = (value) => String(value || "").replace(/\D/g, "");
 
 function getContent(page) {
@@ -163,11 +165,7 @@ export function paymentDueDate(value, issueDate) {
 }
 
 export function assertBasePaymentSyncIsSafe(payment) {
-  if (billingType(payment?.billingType) !== "CREDIT_CARD") return;
-
-  throw new Error(
-    "BASE_CREDIT_CARD_SYNC_UNSAFE: refusing to create an unlinked Base card receivable for an Asaas charge",
-  );
+  billingType(payment?.billingType);
 }
 
 function addMonthsIsoDate(value, months) {
@@ -239,9 +237,43 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
   };
 }
 
+export function nextBaseOrderNumber(orders) {
+  const numbers = getContent(orders)
+    .map((order) => Number(order.number))
+    .filter((number) => Number.isInteger(number) && number > 0);
+  if (!numbers.length) return null;
+  return Math.max(...numbers) + 1;
+}
+
+async function createSequencedBaseOrder(payload, paymentId) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BASE_ORDER_SEQUENCE_LOCK_ID})`;
+    const externalReference = `asaas:${paymentId}`;
+    const existing = getContent(await getBaseOrders({ externalReference, page: "0", size: "2" }));
+    if (existing.length > 1) throw new Error("BASE_ORDER_AMBIGUOUS");
+    if (existing[0]) return existing[0];
+
+    const nextNumber = nextBaseOrderNumber(await getBaseOrders({ page: "0", size: "100" }));
+    return createBaseOrder(
+      nextNumber ? { ...payload, number: nextNumber } : payload,
+      `asaas-payment-${paymentId}`,
+    );
+  }, { maxWait: 20000, timeout: 30000 });
+}
+
 export async function syncPaidOrderToBase(mappedOrder, { customer, payment, event }) {
   const config = getBaseConfig();
-  if (!config.enabled) return { status: "DISABLED" };
+  if (!config.enabled) {
+    await prisma.asaasShopifyOrder.update({
+      where: { id: mappedOrder.id },
+      data: {
+        baseSyncStatus: "DISABLED",
+        baseSyncEvent: event,
+        baseSyncError: "BASE_SYNC_DISABLED",
+      },
+    });
+    return { status: "DISABLED" };
+  }
 
   const staleProcessingBefore = new Date(Date.now() - 5 * 60 * 1000);
   const claim = await prisma.asaasShopifyOrder.updateMany({
@@ -275,10 +307,8 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
     // the due date of an already confirmed card charge and Base rejects the order.
     const issueDate = baseOrderIssueDate(mappedOrder, payment);
 
-    const order = existing[0] || await createBaseOrder(
-      baseSalesOrderPayload({ issueDate, baseCustomerId, bankId: config.bankId, payment, financial }),
-      `asaas-payment-${payment.id}`,
-    );
+    const payload = baseSalesOrderPayload({ issueDate, baseCustomerId, bankId: config.bankId, payment, financial });
+    const order = existing[0] || await createSequencedBaseOrder(payload, payment.id);
 
     await prisma.asaasShopifyOrder.update({
       where: { id: mappedOrder.id },

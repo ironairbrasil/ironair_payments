@@ -18,6 +18,11 @@ import {
   getIronAirPublicProduct,
   publicProductToCheckoutItem,
 } from "../services/ironair-product.server";
+import {
+  captureAttribution,
+  getPersistedAttribution,
+  mergeAttribution,
+} from "../utils/attribution.client";
 
 const BRAZIL_STATES = [
   "AC",
@@ -336,7 +341,7 @@ export async function loader({ request }) {
       queryValue(url.searchParams, ["coupon", "couponCode", "discount", "discountCode"]) ||
       "",
     attribution: Object.fromEntries(
-      ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid"]
+      ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid", "_fbp", "_fbc"]
         .map((key) => [key, url.searchParams.get(key) || ""])
         .filter(([, value]) => value),
     ),
@@ -501,6 +506,7 @@ export default function IronAirCheckout() {
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState("");
   const [shippingQuotedCep, setShippingQuotedCep] = useState("");
+  const [persistedAttribution, setPersistedAttribution] = useState(attribution || {});
   const subtotal = useMemo(
     () =>
       items.reduce(
@@ -532,6 +538,12 @@ export default function IronAirCheckout() {
       }),
     [checkoutTotal],
   );
+
+  useEffect(() => {
+    setPersistedAttribution(
+      mergeAttribution(captureAttribution(), getPersistedAttribution(), attribution),
+    );
+  }, [attribution]);
 
   function updateField(name, value) {
     let nextValue = value;
@@ -716,7 +728,7 @@ export default function IronAirCheckout() {
         },
         paymentMethod,
         couponCode: normalizedCouponCode,
-        attribution,
+        attribution: mergeAttribution(persistedAttribution, attribution),
         items: items.filter(itemIsPayable),
         ...(preorder ? {} : { shippingOption: selectedShippingOption }),
       };

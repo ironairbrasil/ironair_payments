@@ -32,6 +32,12 @@ import { useLoaderData, useLocation } from "react-router";
 
 import { getIronAirPublicProduct } from "../services/ironair-product.server";
 import landingStyles from "../styles/oferta.css?url";
+import {
+  appendAttributionToUrl,
+  captureAttribution,
+  getPersistedAttribution,
+  mergeAttribution,
+} from "../utils/attribution.client";
 
 export function links() {
   return [
@@ -483,13 +489,29 @@ function BuyButton({ label = "QUERO MEU IRON AIR", checkout = false, checkoutUrl
   );
 }
 
-export default function OfferLanding({ data, hideLaunchHero = false }) {
+export default function OfferLanding({
+  data,
+  hideLaunchHero = false,
+  leadWithPurchase = false,
+}) {
   const loaderData = useLoaderData();
-  const { product, payOrigin, campaign } = data || loaderData;
+  const pageData = data || loaderData;
+  const { product, payOrigin, campaign } = pageData;
   const location = useLocation();
   const isCustomerWeek = campaign === "customer-week";
-  const shouldHideLaunchHero =
+  const [isIronAirPath, setIsIronAirPath] = useState(false);
+  useEffect(() => {
+    captureAttribution();
+  }, [location.search]);
+  useEffect(() => {
+    setIsIronAirPath(window.location.pathname === "/ironair");
+  }, []);
+  const shouldLeadWithPurchase =
+    leadWithPurchase || pageData?.leadWithPurchase || isIronAirPath;
+  const isKitOfferPage =
     hideLaunchHero || location.pathname === "/kit-ironair+jaleco";
+  const shouldHideLaunchHero =
+    shouldLeadWithPurchase || isKitOfferPage;
   const firstAvailable =
     product.variants.find((variant) => variant.available) ||
     product.variants[0];
@@ -686,6 +708,10 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
     event.preventDefault();
     if (!selected?.available) return;
     if (typeof window !== "undefined") {
+      const persistedAttribution = mergeAttribution(
+        captureAttribution(),
+        getPersistedAttribution(),
+      );
       window.fbq?.("track", "InitiateCheckout", {
         content_ids: [selected?.numericId],
         content_type: "product",
@@ -703,7 +729,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
           },
         ],
       });
-      window.location.assign(checkoutUrl);
+      window.location.assign(appendAttributionToUrl(checkoutUrl, persistedAttribution));
     }
   }
 
@@ -717,16 +743,121 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
 
   const buyButtonProps = { checkoutUrl, available: selected?.available, buy, goToPurchase };
 
+  const purchaseSection = (
+    <section
+      className={`offer-section offer-box ${shouldLeadWithPurchase ? "is-lead" : ""}`}
+      id="comprar"
+    >
+      <div className="purchase-media">
+        <div className="purchase-main-image">
+          <img
+            src={purchaseImage}
+            alt={product.title}
+            width="1000"
+            height="1000"
+            loading={shouldLeadWithPurchase ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={shouldLeadWithPurchase ? "high" : "auto"}
+          />
+        </div>
+        {galleryImages.length > 1 ? (
+          <div className="purchase-gallery" aria-label="Galeria do produto">
+            {galleryImages.map((image, index) => (
+              <button
+                key={`${image}-${index}`}
+                type="button"
+                className={image === purchaseImage ? "selected" : ""}
+                onClick={() => setPurchaseImage(image)}
+                aria-label={`Ver imagem ${index + 1} de ${product.title}`}
+              >
+                <img
+                  src={image}
+                  alt=""
+                  width="160"
+                  height="160"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="purchase-info">
+        <p className="eyebrow">ESCOLHA SUA VOLTAGEM</p>
+        <h2>{product.title}</h2>
+        <div
+          className="purchase-rating"
+          aria-label="4,8 de 5 estrelas, 4 avaliações"
+        >
+          <span aria-hidden="true">★★★★★</span>
+          <strong>{OFFER_TERMS.rating.toFixed(1)}</strong>
+          <small>({OFFER_TERMS.reviewCount} Avaliações)</small>
+        </div>
+        <div className="purchase-price">
+          {compareAtPrice ? (
+            <del>{money(compareAtPrice)}</del>
+          ) : null}
+          <strong>{money(pixPrice)}</strong>
+          <span className="pix-caption">com 10% OFF no Pix</span>
+          <p className="installments">
+            ou <b>{money(selected?.price)}</b> em até{" "}
+            {OFFER_TERMS.installments}x de <b>{money(installmentPrice)}</b>{" "}
+            s/juros
+          </p>
+        </div>
+        <strong className="voltage-label">Voltagem</strong>
+        <div className="voltage-options">
+          {product.variants.map((variant) => (
+            <button
+              key={variant.id}
+              type="button"
+              className={variant.id === selected?.id ? "selected" : ""}
+              disabled={!variant.available}
+              onClick={() => setVariantId(variant.id)}
+            >
+              {variant.title}
+              <small>{variant.available ? "Disponível" : "Sem estoque"}</small>
+            </button>
+          ))}
+        </div>
+        <BuyButton {...buyButtonProps} label="COMPRAR AGORA" checkout />
+        <PaymentMethods compact />
+      </div>
+      <div className="purchase-details">
+        <details>
+          <summary>DESCRIÇÃO</summary>
+          <div
+            className="purchase-details-content"
+            dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+          />
+        </details>
+        {product.specificationsHtml ? (
+          <details>
+            <summary>ESPECIFICAÇÕES TÉCNICAS</summary>
+            <div
+              className="purchase-details-content"
+              dangerouslySetInnerHTML={{
+                __html: product.specificationsHtml,
+              }}
+            />
+          </details>
+        ) : null}
+      </div>
+    </section>
+  );
 
   return (
     <main
-      className={`offer-page ${shouldHideLaunchHero ? "kit-offer-page" : ""} ${isCustomerWeek ? "customer-week-page" : ""}`}
+      className={`offer-page ${isKitOfferPage ? "kit-offer-page" : ""} ${isCustomerWeek ? "customer-week-page" : ""}`}
     >
       <header className="promo-bar">
         Frete grátis para todo Brasil. Use o cupom <strong>PIX10</strong> para
         10% OFF
       </header>
-      {isCustomerWeek ? (
+      {shouldLeadWithPurchase ? purchaseSection : null}
+
+      {shouldLeadWithPurchase ? null : isCustomerWeek ? (
         <section
           className="customer-week-hero"
           aria-label="Semana do Cliente Iron Air"
@@ -820,13 +951,13 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
         </section>
       ) : null}
 
-      {!shouldHideLaunchHero && !isCustomerWeek ? (
+      {!shouldLeadWithPurchase && !shouldHideLaunchHero && !isCustomerWeek ? (
         <div className="hero-discovery-cta">
           <BuyButton {...buyButtonProps} label="CONHECER O IRON AIR" />
         </div>
       ) : null}
 
-      {shouldHideLaunchHero ? (
+      {isKitOfferPage ? (
         <section className="kit-vsl-hero" aria-labelledby="kit-vsl-title">
           <div className="kit-vsl-copy">
             <p className="eyebrow">IRON AIR + AIRBAG PARA JALECO</p>
@@ -1650,105 +1781,7 @@ export default function OfferLanding({ data, hideLaunchHero = false }) {
         </div>
       </section>
 
-      <section className="offer-section offer-box" id="comprar">
-        <div className="purchase-media">
-          <div className="purchase-main-image">
-            <img
-              src={purchaseImage}
-              alt={product.title}
-              width="1000"
-              height="1000"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-          {galleryImages.length > 1 ? (
-            <div className="purchase-gallery" aria-label="Galeria do produto">
-              {galleryImages.map((image, index) => (
-                <button
-                  key={`${image}-${index}`}
-                  type="button"
-                  className={image === purchaseImage ? "selected" : ""}
-                  onClick={() => setPurchaseImage(image)}
-                  aria-label={`Ver imagem ${index + 1} de ${product.title}`}
-                >
-                  <img
-                    src={image}
-                    alt=""
-                    width="160"
-                    height="160"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <div className="purchase-info">
-          <p className="eyebrow">ESCOLHA SUA VOLTAGEM</p>
-          <h2>{product.title}</h2>
-          <div
-            className="purchase-rating"
-            aria-label="4,8 de 5 estrelas, 4 avaliações"
-          >
-            <span aria-hidden="true">★★★★★</span>
-            <strong>{OFFER_TERMS.rating.toFixed(1)}</strong>
-            <small>({OFFER_TERMS.reviewCount} Avaliações)</small>
-          </div>
-          <div className="purchase-price">
-            {compareAtPrice ? (
-              <del>{money(compareAtPrice)}</del>
-            ) : null}
-            <strong>{money(pixPrice)}</strong>
-            <span className="pix-caption">com 10% OFF no Pix</span>
-            <p className="installments">
-              ou <b>{money(selected?.price)}</b> em até{" "}
-              {OFFER_TERMS.installments}x de <b>{money(installmentPrice)}</b>{" "}
-              s/juros
-            </p>
-          </div>
-          <strong className="voltage-label">Voltagem</strong>
-          <div className="voltage-options">
-            {product.variants.map((variant) => (
-              <button
-                key={variant.id}
-                type="button"
-                className={variant.id === selected?.id ? "selected" : ""}
-                disabled={!variant.available}
-                onClick={() => setVariantId(variant.id)}
-              >
-                {variant.title}
-                <small>
-                  {variant.available ? "Disponível" : "Sem estoque"}
-                </small>
-              </button>
-            ))}
-          </div>
-          <BuyButton {...buyButtonProps} label="COMPRAR AGORA" checkout />
-          <PaymentMethods compact />
-        </div>
-        <div className="purchase-details">
-          <details>
-            <summary>DESCRIÇÃO</summary>
-            <div
-              className="purchase-details-content"
-              dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
-            />
-          </details>
-          {product.specificationsHtml ? (
-            <details>
-              <summary>ESPECIFICAÇÕES TÉCNICAS</summary>
-              <div
-                className="purchase-details-content"
-                dangerouslySetInnerHTML={{
-                  __html: product.specificationsHtml,
-                }}
-              />
-            </details>
-          ) : null}
-        </div>
-      </section>
+      {shouldLeadWithPurchase ? null : purchaseSection}
 
       <section className="offer-section faq" id="perguntas">
         <h2>Perguntas frequentes</h2>

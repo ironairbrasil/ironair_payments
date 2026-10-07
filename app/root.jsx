@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
 import process from "node:process";
 import { useEffect } from "react";
+import { captureAttribution } from "./utils/attribution.client";
 import { offerPixelBootstrap } from "./utils/offer-pixel-bootstrap";
 import {
   Links,
@@ -44,6 +45,8 @@ function Analytics({
   deferAnalytics,
 }) {
   useEffect(() => {
+    captureAttribution();
+
     const loadAnalytics = () => {
       cleanup();
 

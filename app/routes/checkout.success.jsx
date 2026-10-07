@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLoaderData } from "react-router";
 
 import db from "../db.server";
+import { ensureMetaPurchaseEventId } from "../services/meta-capi.server";
 
 export async function loader({ request }) {
   const url = new URL(request.url);
@@ -17,12 +18,22 @@ export async function loader({ request }) {
       ].filter(Boolean),
       status: "PAID",
     },
-    select: { asaasPaymentId: true, externalReference: true, value: true, shopifyOrderId: true },
+    select: {
+      id: true,
+      asaasPaymentId: true,
+      externalReference: true,
+      value: true,
+      shopifyOrderId: true,
+      metaPurchaseEventId: true,
+    },
   });
+
+  const eventId = order ? await ensureMetaPurchaseEventId(order) : null;
 
   return order ? {
     purchase: {
       transactionId: order.shopifyOrderId || order.asaasPaymentId || order.externalReference,
+      eventId,
       value: Number(order.value),
       currency: "BRL",
     },
@@ -34,9 +45,10 @@ export default function CheckoutSuccess() {
 
   useEffect(() => {
     if (!purchase) return;
-    const storageKey = `ironair:purchase:${purchase.transactionId}`;
+    const eventId = purchase.eventId || purchase.transactionId;
+    const storageKey = `ironair:purchase:${eventId}`;
     if (window.localStorage.getItem(storageKey)) return;
-    window.fbq?.("track", "Purchase", { value: purchase.value, currency: purchase.currency }, { eventID: purchase.transactionId });
+    window.fbq?.("track", "Purchase", { value: purchase.value, currency: purchase.currency }, { eventID: eventId });
     window.gtag?.("event", "purchase", { transaction_id: purchase.transactionId, value: purchase.value, currency: purchase.currency });
     window.localStorage.setItem(storageKey, "1");
   }, [purchase]);

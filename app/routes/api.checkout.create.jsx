@@ -12,6 +12,10 @@ function getClientIp(request) {
   );
 }
 
+function getUserAgent(request) {
+  return request.headers.get("user-agent") || "";
+}
+
 export async function loader({ request }) {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -50,6 +54,7 @@ export async function action({ request }) {
   try {
     const checkout = await createIronAirCheckout(await request.json(), {
       remoteIp: getClientIp(request),
+      userAgent: getUserAgent(request),
     });
 
     return checkoutJson({

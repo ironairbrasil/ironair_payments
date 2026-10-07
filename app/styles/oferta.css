@@ -1779,6 +1779,9 @@ body:has(.offer-page) {
   align-items: stretch;
   padding-bottom: 42px;
 }
+.offer-box.is-lead {
+  padding-top: 64px;
+}
 .purchase-media,
 .purchase-info {
   border: 0;
@@ -2447,6 +2450,9 @@ body:has(.offer-page) {
   }
   .offer-box {
     padding-bottom: 30px;
+  }
+  .offer-box.is-lead {
+    padding-top: 32px;
   }
   .offer-section > h2,
   .offer-section > div > h2 {
