@@ -10,6 +10,7 @@ import {
   baseFinancialPayload,
   baseOrderIssueDate,
   baseSalesOrderPayload,
+  baseSyncClaimWhere,
   billingType,
   customerPayload,
   firstInstallmentDueDate,
@@ -82,6 +83,44 @@ test("reserves the next Base order number from the highest listed number", () =>
     }),
     21,
   );
+});
+
+test("normal Base sync claim waits before retrying failed orders", () => {
+  const staleProcessingBefore = new Date("2026-10-07T12:00:00Z");
+  const where = baseSyncClaimWhere(
+    { id: 92 },
+    { staleProcessingBefore },
+  );
+
+  assert.deepEqual(where, {
+    id: 92,
+    status: "PAID",
+    baseOrderId: null,
+    OR: [
+      { baseSyncStatus: "PENDING" },
+      { baseSyncStatus: "FAILED", updatedAt: { lt: staleProcessingBefore } },
+      { baseSyncStatus: "PROCESSING", updatedAt: { lt: staleProcessingBefore } },
+    ],
+  });
+});
+
+test("forced Base sync retry can reclaim failed orders but not recent processing", () => {
+  const staleProcessingBefore = new Date("2026-10-07T12:00:00Z");
+  const where = baseSyncClaimWhere(
+    { id: 92 },
+    { force: true, staleProcessingBefore },
+  );
+
+  assert.deepEqual(where, {
+    id: 92,
+    status: "PAID",
+    baseOrderId: null,
+    OR: [
+      { baseSyncStatus: "PENDING" },
+      { baseSyncStatus: "FAILED" },
+      { baseSyncStatus: "PROCESSING", updatedAt: { lt: staleProcessingBefore } },
+    ],
+  });
 });
 
 test("links Base Pix payments to the existing Asaas charge", () => {

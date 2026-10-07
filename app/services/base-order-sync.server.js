@@ -245,6 +245,26 @@ export function nextBaseOrderNumber(orders) {
   return Math.max(...numbers) + 1;
 }
 
+export function baseSyncClaimWhere(mappedOrder, { force = false, staleProcessingBefore } = {}) {
+  const staleBefore = staleProcessingBefore || new Date(Date.now() - 5 * 60 * 1000);
+  return {
+    id: mappedOrder.id,
+    status: "PAID",
+    baseOrderId: null,
+    OR: force
+      ? [
+          { baseSyncStatus: "PENDING" },
+          { baseSyncStatus: "FAILED" },
+          { baseSyncStatus: "PROCESSING", updatedAt: { lt: staleBefore } },
+        ]
+      : [
+          { baseSyncStatus: "PENDING" },
+          { baseSyncStatus: "FAILED", updatedAt: { lt: staleBefore } },
+          { baseSyncStatus: "PROCESSING", updatedAt: { lt: staleBefore } },
+        ],
+  };
+}
+
 async function createSequencedBaseOrder(payload, paymentId) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BASE_ORDER_SEQUENCE_LOCK_ID})`;
@@ -261,7 +281,7 @@ async function createSequencedBaseOrder(payload, paymentId) {
   }, { maxWait: 20000, timeout: 30000 });
 }
 
-export async function syncPaidOrderToBase(mappedOrder, { customer, payment, event }) {
+export async function syncPaidOrderToBase(mappedOrder, { customer, payment, event, force = false }) {
   const config = getBaseConfig();
   if (!config.enabled) {
     await prisma.asaasShopifyOrder.update({
@@ -277,15 +297,7 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
 
   const staleProcessingBefore = new Date(Date.now() - 5 * 60 * 1000);
   const claim = await prisma.asaasShopifyOrder.updateMany({
-    where: {
-      id: mappedOrder.id,
-      baseOrderId: null,
-      OR: [
-        { baseSyncStatus: "PENDING" },
-        { baseSyncStatus: "FAILED", updatedAt: { lt: staleProcessingBefore } },
-        { baseSyncStatus: "PROCESSING", updatedAt: { lt: staleProcessingBefore } },
-      ],
-    },
+    where: baseSyncClaimWhere(mappedOrder, { force, staleProcessingBefore }),
     data: { baseSyncStatus: "PROCESSING", baseSyncEvent: event, baseSyncError: null },
   });
   if (claim.count !== 1) {

@@ -10,14 +10,15 @@ async function loadRoutes() {
     server: { middlewareMode: true, hmr: false, watch: null },
   });
   try {
-    const [asaasTest, checkoutStart, checkoutTest, baseIncident, correiosRepair] = await Promise.all([
+    const [asaasTest, checkoutStart, checkoutTest, baseIncident, baseRetry, correiosRepair] = await Promise.all([
       vite.ssrLoadModule("/app/routes/api.asaas.test.jsx"),
       vite.ssrLoadModule("/app/routes/api.checkout.start.jsx"),
       vite.ssrLoadModule("/app/routes/api.checkout.test.jsx"),
       vite.ssrLoadModule("/app/routes/api.admin.base.detach-payment.jsx"),
+      vite.ssrLoadModule("/app/routes/api.admin.base.retry-sync.jsx"),
       vite.ssrLoadModule("/app/routes/api.admin.orders.$id.correios.repair.jsx"),
     ]);
-    return { asaasTest, checkoutStart, checkoutTest, baseIncident, correiosRepair };
+    return { asaasTest, checkoutStart, checkoutTest, baseIncident, baseRetry, correiosRepair };
   } finally {
     await vite.close();
   }
@@ -76,6 +77,7 @@ test("incident recovery routes are disabled unless explicitly enabled", async ()
     const routes = await loadRoutes();
     const request = new Request("https://payments.example/api/admin", { method: "POST" });
     assert.equal((await routes.baseIncident.action({ request })).status, 404);
+    assert.equal((await routes.baseRetry.action({ request })).status, 404);
     assert.equal((await routes.correiosRepair.loader({ request, params: { id: "38" } })).status, 404);
   } finally {
     for (const key of keys) {
