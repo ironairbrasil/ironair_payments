@@ -11,32 +11,39 @@ function requireAdminToken(request) {
 }
 
 export async function action({ request }) {
-  if (!isIncidentRecoveryAllowed()) {
-    return Response.json({ success: false, error: "Not found." }, { status: 404 });
-  }
-  if (!requireAdminToken(request)) {
-    return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
-  }
+  try {
+    if (!isIncidentRecoveryAllowed()) {
+      return Response.json({ success: false, error: "Not found." }, { status: 404 });
+    }
+    if (!requireAdminToken(request)) {
+      return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    }
 
-  const body = await request.json().catch(() => ({}));
-  const {
-    repairBaseOrderPaymentsForPaidOrder,
-    retryBaseSyncForPaidOrders,
-  } = await import("../services/base-sync-retry.server.js");
-  if (body.action === "repair-payments") {
-    const result = await repairBaseOrderPaymentsForPaidOrder({
+    const body = await request.json().catch(() => ({}));
+    const {
+      repairBaseOrderPaymentsForPaidOrder,
+      retryBaseSyncForPaidOrders,
+    } = await import("../services/base-sync-retry.server.js");
+    if (body.action === "repair-payments") {
+      const result = await repairBaseOrderPaymentsForPaidOrder({
+        orderId: body.orderId,
+        paymentId: body.paymentId,
+      });
+      return Response.json(result, { status: result.success ? 200 : 400 });
+    }
+
+    const result = await retryBaseSyncForPaidOrders({
       orderId: body.orderId,
       paymentId: body.paymentId,
+      limit: body.limit,
+      event: body.event || "BASE_RETRY_ADMIN",
     });
-    return Response.json(result, { status: result.success ? 200 : 400 });
+
+    return Response.json(result);
+  } catch (error) {
+    return Response.json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 500 });
   }
-
-  const result = await retryBaseSyncForPaidOrders({
-    orderId: body.orderId,
-    paymentId: body.paymentId,
-    limit: body.limit,
-    event: body.event || "BASE_RETRY_ADMIN",
-  });
-
-  return Response.json(result);
 }
