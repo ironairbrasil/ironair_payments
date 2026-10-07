@@ -267,7 +267,7 @@ export function baseSyncClaimWhere(mappedOrder, { force = false, staleProcessing
 
 async function createSequencedBaseOrder(payload, paymentId) {
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BASE_ORDER_SEQUENCE_LOCK_ID})`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BASE_ORDER_SEQUENCE_LOCK_ID})`;
     const externalReference = `asaas:${paymentId}`;
     const existing = getContent(await getBaseOrders({ externalReference, page: "0", size: "2" }));
     if (existing.length > 1) throw new Error("BASE_ORDER_AMBIGUOUS");
