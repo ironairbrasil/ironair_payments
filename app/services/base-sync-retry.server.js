@@ -5,6 +5,14 @@ import {
   isAsaasPaymentApproved,
 } from "./asaas.server.js";
 import { syncPaidOrderToBase } from "./base-order-sync.server.js";
+import {
+  baseFinancialPayload,
+  baseOrderIssueDate,
+  baseSalesOrderPayload,
+  mappedProduct,
+} from "./base-order-sync.server.js";
+import { getBaseConfig } from "../config/base.server.js";
+import { getBaseOrder, updateBaseOrder } from "./base.server.js";
 
 const DEFAULT_RETRY_LIMIT = 10;
 const MAX_RETRY_LIMIT = 25;
@@ -107,5 +115,57 @@ export async function retryBaseSyncForPaidOrders({
     success: true,
     count: results.length,
     results,
+  };
+}
+
+export async function repairBaseOrderPaymentsForPaidOrder({ orderId, paymentId } = {}) {
+  const order = await prisma.asaasShopifyOrder.findFirst({
+    where: {
+      ...retryOrderWhere({ orderId, paymentId }),
+      status: "PAID",
+    },
+  });
+  if (!order) return { success: false, error: "ORDER_NOT_FOUND" };
+  if (!order.baseOrderId) return { success: false, error: "BASE_ORDER_NOT_FOUND" };
+
+  const config = getBaseConfig();
+  const payment = await getNormalizedAsaasPayment(order.asaasPaymentId);
+  if (!isAsaasPaymentApproved(payment)) {
+    return { success: false, error: "ASAAS_PAYMENT_NOT_APPROVED", asaasStatus: payment?.status };
+  }
+
+  const baseOrder = await getBaseOrder(order.baseOrderId);
+  const product = mappedProduct(order.checkoutData, config.productMap);
+  const financial = baseFinancialPayload(order, payment, product);
+  const issueDate = baseOrderIssueDate(order, payment);
+  const repairedPayload = baseSalesOrderPayload({
+    issueDate,
+    baseCustomerId: order.baseCustomerId || baseOrder.customerId,
+    bankId: config.bankId,
+    payment,
+    financial,
+  });
+
+  const updated = await updateBaseOrder(order.baseOrderId, {
+    ...repairedPayload,
+    id: undefined,
+    issueDate: baseOrder.issueDate || repairedPayload.issueDate,
+    customerId: baseOrder.customerId || repairedPayload.customerId,
+    externalReference: baseOrder.externalReference || repairedPayload.externalReference,
+    observations: baseOrder.observations || repairedPayload.observations,
+    typeOfShipping: baseOrder.typeOfShipping || repairedPayload.typeOfShipping,
+    orderItems: Array.isArray(baseOrder.orderItems) && baseOrder.orderItems.length
+      ? baseOrder.orderItems.map(({ productId, unitPrice, quantity }) => ({ productId, unitPrice, quantity }))
+      : repairedPayload.orderItems,
+    orderPayments: repairedPayload.orderPayments,
+  });
+
+  return {
+    success: true,
+    orderId: order.id,
+    paymentId: order.asaasPaymentId,
+    baseOrderId: order.baseOrderId,
+    orderPayments: repairedPayload.orderPayments,
+    updatedOrderValue: updated.orderValue,
   };
 }

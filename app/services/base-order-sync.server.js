@@ -210,17 +210,24 @@ export function baseOrderIssueDate(mappedOrder, payment) {
 
 export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payment, financial }) {
   assertBasePaymentSyncIsSafe(payment);
+  const resolvedBillingType = billingType(payment.billingType);
+  const isInstallmentCreditCard =
+    resolvedBillingType === "CREDIT_CARD" && financial.installmentCount > 1;
 
   const paymentPayload = {
+    dueDate: isInstallmentCreditCard ? issueDate : firstInstallmentDueDate(payment, issueDate),
+    value: isInstallmentCreditCard ? financial.saleTotal : financial.asaasInstallmentValue,
+    bankId,
+    billingType: resolvedBillingType,
+  };
+  if (isInstallmentCreditCard) {
+    paymentPayload.numberInstallments = 1;
+  } else {
     // Base expands numberInstallments from this first due date. Asaas webhooks
     // can arrive for a later installment, so normalize back to installment 1.
-    dueDate: firstInstallmentDueDate(payment, issueDate),
-    value: financial.asaasInstallmentValue,
-    bankId,
-    billingType: billingType(payment.billingType),
-    numberInstallments: financial.installmentCount,
-  };
-  paymentPayload.paymentId = financial.asaasPaymentId;
+    paymentPayload.numberInstallments = financial.installmentCount;
+    paymentPayload.paymentId = financial.asaasPaymentId;
+  }
 
   return {
     issueDate,

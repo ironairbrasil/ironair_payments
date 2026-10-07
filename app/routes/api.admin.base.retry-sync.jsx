@@ -19,7 +19,18 @@ export async function action({ request }) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { retryBaseSyncForPaidOrders } = await import("../services/base-sync-retry.server.js");
+  const {
+    repairBaseOrderPaymentsForPaidOrder,
+    retryBaseSyncForPaidOrders,
+  } = await import("../services/base-sync-retry.server.js");
+  if (body.action === "repair-payments") {
+    const result = await repairBaseOrderPaymentsForPaidOrder({
+      orderId: body.orderId,
+      paymentId: body.paymentId,
+    });
+    return Response.json(result, { status: result.success ? 200 : 400 });
+  }
+
   const result = await retryBaseSyncForPaidOrders({
     orderId: body.orderId,
     paymentId: body.paymentId,

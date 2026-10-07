@@ -65,10 +65,10 @@ test("syncs Base card orders using the existing Asaas installment", () => {
     financial,
   });
 
-  assert.equal(payload.orderPayments[0].paymentId, "pay_confirmed");
+  assert.equal(payload.orderPayments[0].paymentId, undefined);
   assert.equal(payload.orderPayments[0].billingType, "CREDIT_CARD");
-  assert.equal(payload.orderPayments[0].value, 749.5);
-  assert.equal(payload.orderPayments[0].numberInstallments, 2);
+  assert.equal(payload.orderPayments[0].value, 1499);
+  assert.equal(payload.orderPayments[0].numberInstallments, 1);
 });
 
 test("reserves the next Base order number from the highest listed number", () => {
