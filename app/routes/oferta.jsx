@@ -1905,7 +1905,7 @@ export default function OfferLanding({
             <div className="ecommerce-seal inmetro-seal">
               <span className="inmetro-mark">INMETRO</span>
               <span>
-                <b>CONFORMIDADE</b>Consulte o registro do produto
+                <b>CONFORMIDADE</b>Registro LMP 26.5034
               </span>
             </div>
           </div>
