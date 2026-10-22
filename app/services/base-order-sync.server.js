@@ -211,8 +211,11 @@ export function baseOrderIssueDate(mappedOrder, payment) {
 export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payment, financial }) {
   assertBasePaymentSyncIsSafe(payment);
   const resolvedBillingType = billingType(payment.billingType);
+  const paymentStatus = String(payment.status || "").toUpperCase();
   const isInstallmentCreditCard =
     resolvedBillingType === "CREDIT_CARD" && financial.installmentCount > 1;
+  const isSettledPix =
+    resolvedBillingType === "PIX" && ["CONFIRMED", "RECEIVED"].includes(paymentStatus);
 
   const paymentPayload = {
     dueDate: isInstallmentCreditCard ? issueDate : firstInstallmentDueDate(payment, issueDate),
@@ -229,7 +232,7 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
     paymentPayload.paymentId = financial.asaasPaymentId;
   }
 
-  return {
+  const payload = {
     issueDate,
     customerId: baseCustomerId,
     externalReference: `asaas:${payment.id}`,
@@ -240,8 +243,15 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
     ].join(" | "),
     typeOfShipping: "SEM_FRETE",
     orderItems: [financial.orderItem],
-    orderPayments: [paymentPayload],
   };
+
+  // Base tries to edit a linked Asaas Pix charge when orderPayments is sent.
+  // Settled charges are immutable, while omitting only paymentId would create a
+  // duplicate receivable. Keep the paid Pix reference in externalReference and
+  // observations, but create the sales order without changing its receivable.
+  if (!isSettledPix) payload.orderPayments = [paymentPayload];
+
+  return payload;
 }
 
 export function nextBaseOrderNumber(orders) {

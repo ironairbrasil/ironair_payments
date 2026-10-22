@@ -123,7 +123,7 @@ test("forced Base sync retry can reclaim failed orders but not recent processing
   });
 });
 
-test("links Base Pix payments to the existing Asaas charge", () => {
+test("creates paid Pix Base orders without editing or duplicating the Asaas charge", () => {
   const financial = baseFinancialPayload(
     { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },
     { id: "pay_pix", value: 1349.1, installmentCount: 1 },
@@ -137,11 +137,35 @@ test("links Base Pix payments to the existing Asaas charge", () => {
       id: "pay_pix",
       dueDate: "2026-09-24",
       billingType: "PIX",
+      status: "RECEIVED",
     },
     financial,
   });
 
-  assert.equal(payload.orderPayments[0].paymentId, "pay_pix");
+  assert.equal(payload.externalReference, "asaas:pay_pix");
+  assert.equal("orderPayments" in payload, false);
+});
+
+test("still links pending Pix payments when building a Base payload", () => {
+  const financial = baseFinancialPayload(
+    { value: 1499, discountAmount: 0, shippingPrice: 0 },
+    { id: "pay_pix_pending", value: 1499, installmentCount: 1 },
+    { productId: 100704254, quantity: 1, unitPrice: 1499 },
+  );
+  const payload = baseSalesOrderPayload({
+    issueDate: "2026-09-24",
+    baseCustomerId: 121126438,
+    bankId: 1001,
+    payment: {
+      id: "pay_pix_pending",
+      dueDate: "2026-09-24",
+      billingType: "PIX",
+      status: "PENDING",
+    },
+    financial,
+  });
+
+  assert.equal(payload.orderPayments[0].paymentId, "pay_pix_pending");
   assert.equal(payload.orderPayments[0].billingType, "PIX");
 });
 
