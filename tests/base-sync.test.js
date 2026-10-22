@@ -143,7 +143,13 @@ test("links paid Pix Base orders without editing or duplicating the Asaas charge
   });
 
   assert.equal(payload.externalReference, "asaas:pay_pix");
-  assert.deepEqual(payload.orderPayments, [{ paymentId: "pay_pix" }]);
+  assert.deepEqual(payload.orderPayments, [{
+    dueDate: "2026-09-24",
+    value: 1349.1,
+    bankId: 1001,
+    billingType: "PIX",
+    paymentId: "pay_pix",
+  }]);
 });
 
 test("still links pending Pix payments when building a Base payload", () => {
