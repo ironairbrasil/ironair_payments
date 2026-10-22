@@ -245,11 +245,12 @@ export function baseSalesOrderPayload({ issueDate, baseCustomerId, bankId, payme
     orderItems: [financial.orderItem],
   };
 
-  // Base tries to edit a linked Asaas Pix charge when orderPayments is sent.
-  // Settled charges are immutable, while omitting only paymentId would create a
-  // duplicate receivable. Keep the paid Pix reference in externalReference and
-  // observations, but create the sales order without changing its receivable.
-  if (!isSettledPix) payload.orderPayments = [paymentPayload];
+  // Settled Asaas Pix charges are immutable. Link them by id without sending
+  // editable receivable fields; omitting orderPayments is rejected by Base and
+  // omitting only paymentId would create a duplicate charge.
+  payload.orderPayments = isSettledPix
+    ? [{ paymentId: financial.asaasPaymentId }]
+    : [paymentPayload];
 
   return payload;
 }

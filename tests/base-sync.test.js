@@ -123,7 +123,7 @@ test("forced Base sync retry can reclaim failed orders but not recent processing
   });
 });
 
-test("creates paid Pix Base orders without editing or duplicating the Asaas charge", () => {
+test("links paid Pix Base orders without editing or duplicating the Asaas charge", () => {
   const financial = baseFinancialPayload(
     { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },
     { id: "pay_pix", value: 1349.1, installmentCount: 1 },
@@ -143,7 +143,7 @@ test("creates paid Pix Base orders without editing or duplicating the Asaas char
   });
 
   assert.equal(payload.externalReference, "asaas:pay_pix");
-  assert.equal("orderPayments" in payload, false);
+  assert.deepEqual(payload.orderPayments, [{ paymentId: "pay_pix" }]);
 });
 
 test("still links pending Pix payments when building a Base payload", () => {
