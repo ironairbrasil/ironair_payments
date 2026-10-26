@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildMetaAddPaymentInfoPayload,
+  buildMetaInitiateCheckoutPayload,
   buildMetaPurchaseEventId,
   buildMetaPurchasePayload,
   buildMetaPurchaseUserData,
@@ -10,6 +12,45 @@ import {
   META_PURCHASE_MAX_RETRY_ATTEMPTS,
   sendMetaPurchaseForPaidOrder,
 } from "../app/services/meta-capi.server.js";
+
+test("AddPaymentInfo hashes customer matching data and preserves deduplication id", () => {
+  const payload = buildMetaAddPaymentInfoPayload({
+    eventId: "ironair_api_12345678",
+    value: 1499,
+    contentIds: ["52109245186349"],
+    paymentMethod: "PIX",
+    externalReference: "order-123",
+    sourceUrl: "https://pay.ironair.com.br/",
+    customer: { name: "Maria Silva", email: "Maria@Example.com", phone: "11999999999" },
+    shippingAddress: { city: "São Paulo", provinceCode: "SP", postalCode: "01310100" },
+  }, { eventTime: 1234567890 });
+
+  assert.equal(payload.data[0].event_name, "AddPaymentInfo");
+  assert.equal(payload.data[0].event_id, "ironair_api_12345678");
+  assert.equal(payload.data[0].user_data.em.length, 64);
+  assert.notEqual(payload.data[0].user_data.em, "maria@example.com");
+  assert.equal(payload.data[0].custom_data.payment_type, "PIX");
+});
+
+test("InitiateCheckout CAPI uses the browser event id for deduplication", () => {
+  const payload = buildMetaInitiateCheckoutPayload({
+    eventId: "ironair_ic_12345678",
+    value: 1499,
+    contentIds: ["52109245186349"],
+    sourceUrl: "https://pay.ironair.com.br/",
+    clientIp: "203.0.113.10",
+    userAgent: "Test Browser",
+    fbp: "fb.1.123.browser",
+    fbc: "fb.1.456.click",
+  }, { eventTime: 1234567890 });
+
+  assert.equal(payload.data[0].event_name, "InitiateCheckout");
+  assert.equal(payload.data[0].event_id, "ironair_ic_12345678");
+  assert.equal(payload.data[0].event_time, 1234567890);
+  assert.equal(payload.data[0].custom_data.value, 1499);
+  assert.deepEqual(payload.data[0].custom_data.content_ids, ["52109245186349"]);
+  assert.equal(payload.data[0].user_data.fbp, "fb.1.123.browser");
+});
 
 function paidOrder(overrides = {}) {
   return {

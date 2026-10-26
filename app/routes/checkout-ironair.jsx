@@ -15,6 +15,12 @@ import { useLoaderData } from "react-router";
 
 import checkoutStyles from "../styles/checkout-ironair.css?url";
 import {
+  readInitiateCheckoutEvent,
+  trackAddPaymentInfo,
+  trackInitiateCheckoutBrowser,
+  trackInitiateCheckoutServer,
+} from "../utils/initiate-checkout.client";
+import {
   getIronAirPublicProduct,
   publicProductToCheckoutItem,
 } from "../services/ironair-product.server";
@@ -545,6 +551,32 @@ export default function IronAirCheckout() {
     );
   }, [attribution]);
 
+  useEffect(() => {
+    const { eventId, browserSent } = readInitiateCheckoutEvent();
+    const contentIds = items
+      .map((item) =>
+        item.variantId
+          ? String(item.variantId).replace(/\D/g, "")
+          : String(item.sku || ""),
+      )
+      .filter(Boolean);
+    const metaAttribution = mergeAttribution(
+      captureAttribution(),
+      getPersistedAttribution(),
+      attribution,
+    );
+
+    if (!browserSent) {
+      trackInitiateCheckoutBrowser({ eventId, value: subtotal, contentIds });
+    }
+    trackInitiateCheckoutServer({
+      eventId,
+      value: subtotal,
+      contentIds,
+      attribution: metaAttribution,
+    });
+  }, [attribution, items, subtotal]);
+
   function updateField(name, value) {
     let nextValue = value;
 
@@ -745,6 +777,18 @@ export default function IronAirCheckout() {
           installments: Number(card.installments) || 1,
         };
       }
+
+      trackAddPaymentInfo({
+        value: checkoutTotal,
+        contentIds: payload.items
+          .map((item) => String(item.variantId || "").replace(/\D/g, ""))
+          .filter(Boolean),
+        paymentMethod,
+        externalReference,
+        customer: payload.customer,
+        shippingAddress: payload.shippingAddress,
+        attribution: payload.attribution,
+      });
 
       const response = await fetch(
         preorder ? "/api/checkout/preorder/create" : "/api/checkout/create",

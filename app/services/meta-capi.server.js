@@ -156,6 +156,180 @@ export function buildMetaPurchasePayload(order = {}, { eventId, eventTime } = {}
   };
 }
 
+export function buildMetaInitiateCheckoutPayload(input = {}, { eventTime } = {}) {
+  const contentIds = Array.isArray(input.contentIds)
+    ? input.contentIds.map((item) => String(item || "").slice(0, 100)).filter(Boolean).slice(0, 20)
+    : [];
+  const userData = cleanObject({
+    client_ip_address: input.clientIp,
+    client_user_agent: input.userAgent,
+    fbp: input.fbp,
+    fbc: input.fbc,
+  });
+
+  return {
+    data: [
+      {
+        event_name: "InitiateCheckout",
+        event_time: eventTime || Math.floor(Date.now() / 1000),
+        event_id: input.eventId,
+        action_source: "website",
+        event_source_url: input.sourceUrl,
+        user_data: userData,
+        custom_data: cleanObject({
+          currency: "BRL",
+          value: Number(input.value),
+          content_ids: contentIds,
+          contents: contentIds.map((id) => ({ id, quantity: 1 })),
+          content_type: "product",
+          num_items: contentIds.length || undefined,
+        }),
+      },
+    ],
+  };
+}
+
+export function buildMetaAddPaymentInfoPayload(input = {}, { eventTime } = {}) {
+  const { firstName, lastName } = splitName(input.customer?.name);
+  const contentIds = Array.isArray(input.contentIds)
+    ? input.contentIds.map((item) => String(item || "").slice(0, 100)).filter(Boolean).slice(0, 20)
+    : [];
+
+  return {
+    data: [
+      {
+        event_name: "AddPaymentInfo",
+        event_time: eventTime || Math.floor(Date.now() / 1000),
+        event_id: input.eventId,
+        action_source: "website",
+        event_source_url: input.sourceUrl,
+        user_data: cleanObject({
+          em: sha256(normalizeEmail(input.customer?.email)),
+          ph: sha256(normalizePhone(input.customer?.phone)),
+          fn: sha256(firstName),
+          ln: sha256(lastName),
+          ct: sha256(normalizeCity(input.shippingAddress?.city)),
+          st: sha256(normalizeText(input.shippingAddress?.provinceCode)),
+          zp: sha256(onlyDigits(input.shippingAddress?.postalCode)),
+          country: sha256("br"),
+          external_id: sha256(String(input.externalReference || "")),
+          client_ip_address: input.clientIp,
+          client_user_agent: input.userAgent,
+          fbp: input.fbp,
+          fbc: input.fbc,
+        }),
+        custom_data: cleanObject({
+          currency: "BRL",
+          value: Number(input.value),
+          content_ids: contentIds,
+          contents: contentIds.map((id) => ({ id, quantity: 1 })),
+          content_type: "product",
+          payment_type: input.paymentMethod,
+          num_items: contentIds.length || undefined,
+        }),
+      },
+    ],
+  };
+}
+
+export async function sendMetaInitiateCheckout(input, {
+  env = process.env,
+  fetchImpl = fetch,
+} = {}) {
+  const config = getMetaConfig(env);
+  if (!config.pixelId || !config.accessToken) {
+    return { skipped: true, reason: "META_CAPI_NOT_CONFIGURED" };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), META_CAPI_TIMEOUT_MS);
+  try {
+    const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(
+      config.pixelId,
+    )}/events?access_token=${encodeURIComponent(config.accessToken)}`;
+    const payload = buildMetaInitiateCheckoutPayload(input);
+    if (config.testEventCode) payload.test_event_code = config.testEventCode;
+    const response = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn("[meta capi] InitiateCheckout failed.", {
+        eventId: input.eventId,
+        ...summarizeMetaResponse(response.status, body),
+      });
+      return { success: false, status: response.status };
+    }
+    console.log("[meta capi] InitiateCheckout sent.", {
+      eventId: input.eventId,
+      eventsReceived: body?.events_received,
+    });
+    return { success: true, eventsReceived: body?.events_received };
+  } catch (error) {
+    console.warn("[meta capi] InitiateCheckout request failed.", {
+      eventId: input.eventId,
+      error: isAbortError(error)
+        ? `META_CAPI_TIMEOUT_${META_CAPI_TIMEOUT_MS}MS`
+        : sanitizeOperationalText(error instanceof Error ? error.message : error),
+    });
+    return { success: false };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function sendMetaAddPaymentInfo(input, {
+  env = process.env,
+  fetchImpl = fetch,
+} = {}) {
+  const config = getMetaConfig(env);
+  if (!config.pixelId || !config.accessToken) {
+    return { skipped: true, reason: "META_CAPI_NOT_CONFIGURED" };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), META_CAPI_TIMEOUT_MS);
+  try {
+    const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(
+      config.pixelId,
+    )}/events?access_token=${encodeURIComponent(config.accessToken)}`;
+    const payload = buildMetaAddPaymentInfoPayload(input);
+    if (config.testEventCode) payload.test_event_code = config.testEventCode;
+    const response = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn("[meta capi] AddPaymentInfo failed.", {
+        eventId: input.eventId,
+        ...summarizeMetaResponse(response.status, body),
+      });
+      return { success: false, status: response.status };
+    }
+    console.log("[meta capi] AddPaymentInfo sent.", {
+      eventId: input.eventId,
+      eventsReceived: body?.events_received,
+    });
+    return { success: true, eventsReceived: body?.events_received };
+  } catch (error) {
+    console.warn("[meta capi] AddPaymentInfo request failed.", {
+      eventId: input.eventId,
+      error: isAbortError(error)
+        ? `META_CAPI_TIMEOUT_${META_CAPI_TIMEOUT_MS}MS`
+        : sanitizeOperationalText(error instanceof Error ? error.message : error),
+    });
+    return { success: false };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function summarizeMetaResponse(status, body) {
   const error = typeof body === "object" && body ? body.error || body : {};
   const message = typeof error.message === "string"
