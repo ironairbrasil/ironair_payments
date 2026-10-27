@@ -8,6 +8,13 @@ const QUERY_KEYS = [
   "utm_campaign",
   "utm_content",
   "utm_term",
+  "campaign_id",
+  "adset_id",
+  "ad_id",
+  "session_id",
+  "visitor_id",
+  "landingPage",
+  "referrer",
   "fbclid",
   "gclid",
 ];

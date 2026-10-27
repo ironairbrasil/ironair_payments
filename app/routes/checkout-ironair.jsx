@@ -17,7 +17,6 @@ import checkoutStyles from "../styles/checkout-ironair.css?url";
 import {
   readInitiateCheckoutEvent,
   trackAddPaymentInfo,
-  trackInitiateCheckoutBrowser,
   trackInitiateCheckoutServer,
 } from "../utils/initiate-checkout.client";
 import {
@@ -347,7 +346,7 @@ export async function loader({ request }) {
       queryValue(url.searchParams, ["coupon", "couponCode", "discount", "discountCode"]) ||
       "",
     attribution: Object.fromEntries(
-      ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid", "_fbp", "_fbc"]
+      ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "campaign_id", "adset_id", "ad_id", "session_id", "visitor_id", "landingPage", "referrer", "fbclid", "gclid", "_fbp", "_fbc"]
         .map((key) => [key, url.searchParams.get(key) || ""])
         .filter(([, value]) => value),
     ),
@@ -552,7 +551,7 @@ export default function IronAirCheckout() {
   }, [attribution]);
 
   useEffect(() => {
-    const { eventId, browserSent } = readInitiateCheckoutEvent();
+    const { eventId } = readInitiateCheckoutEvent();
     const contentIds = items
       .map((item) =>
         item.variantId
@@ -566,9 +565,7 @@ export default function IronAirCheckout() {
       attribution,
     );
 
-    if (!browserSent) {
-      trackInitiateCheckoutBrowser({ eventId, value: subtotal, contentIds });
-    }
+    // Use a single CAPI source so Meta never has to deduplicate a browser copy.
     trackInitiateCheckoutServer({
       eventId,
       value: subtotal,

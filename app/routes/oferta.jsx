@@ -717,17 +717,6 @@ export default function OfferLanding({
         getPersistedAttribution(),
       );
       const metaEventId = createInitiateCheckoutEventId();
-      window.fbq?.(
-        "track",
-        "InitiateCheckout",
-        {
-          content_ids: [selected?.numericId],
-          content_type: "product",
-          value: selected?.price,
-          currency: "BRL",
-        },
-        { eventID: metaEventId },
-      );
       window.gtag?.("event", "begin_checkout", {
         currency: "BRL",
         value: selected?.price,

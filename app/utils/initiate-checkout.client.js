@@ -1,5 +1,4 @@
 const EVENT_PARAM = "meta_event_id";
-const BROWSER_SENT_PARAM = "meta_browser_sent";
 
 export function createInitiateCheckoutEventId() {
   const random = window.crypto?.randomUUID?.().replaceAll("-", "") ||
@@ -10,7 +9,6 @@ export function createInitiateCheckoutEventId() {
 export function addInitiateCheckoutEventToUrl(url, eventId) {
   const nextUrl = new URL(url, window.location.href);
   nextUrl.searchParams.set(EVENT_PARAM, eventId);
-  nextUrl.searchParams.set(BROWSER_SENT_PARAM, "1");
   return nextUrl.toString();
 }
 
@@ -27,34 +25,7 @@ export function readInitiateCheckoutEvent(search = window.location.search) {
     window.history.replaceState(window.history.state, "", currentUrl);
   }
 
-  return {
-    eventId,
-    browserSent: params.get(BROWSER_SENT_PARAM) === "1" && Boolean(candidate),
-  };
-}
-
-export function trackInitiateCheckoutBrowser({ eventId, value, contentIds }) {
-  const storageKey = `ironair:initiate-checkout:browser:${eventId}`;
-  if (window.sessionStorage.getItem(storageKey)) return;
-
-  const send = () => {
-    if (!window.fbq) return false;
-    window.fbq(
-      "track",
-      "InitiateCheckout",
-      { content_ids: contentIds, content_type: "product", value, currency: "BRL" },
-      { eventID: eventId },
-    );
-    window.sessionStorage.setItem(storageKey, "1");
-    return true;
-  };
-  if (send()) return;
-
-  let attempts = 0;
-  const timer = window.setInterval(() => {
-    attempts += 1;
-    if (send() || attempts >= 20) window.clearInterval(timer);
-  }, 250);
+  return { eventId };
 }
 
 export function trackInitiateCheckoutServer({ eventId, value, contentIds, attribution }) {

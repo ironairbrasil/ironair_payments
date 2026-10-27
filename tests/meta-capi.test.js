@@ -32,7 +32,7 @@ test("AddPaymentInfo hashes customer matching data and preserves deduplication i
   assert.equal(payload.data[0].custom_data.payment_type, "PIX");
 });
 
-test("InitiateCheckout CAPI uses the browser event id for deduplication", () => {
+test("InitiateCheckout CAPI preserves the checkout event id", () => {
   const payload = buildMetaInitiateCheckoutPayload({
     eventId: "ironair_ic_12345678",
     value: 1499,

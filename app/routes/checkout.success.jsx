@@ -48,7 +48,9 @@ export default function CheckoutSuccess() {
     const eventId = purchase.eventId || purchase.transactionId;
     const storageKey = `ironair:purchase:${eventId}`;
     if (window.localStorage.getItem(storageKey)) return;
-    window.fbq?.("track", "Purchase", { value: purchase.value, currency: purchase.currency }, { eventID: eventId });
+    // Meta Purchase is emitted exclusively by CAPI after the server confirms
+    // the order as PAID. Sending it here as well makes correctness depend on
+    // Meta's browser/server deduplication and can double-count PIX sales.
     window.gtag?.("event", "purchase", { transaction_id: purchase.transactionId, value: purchase.value, currency: purchase.currency });
     window.localStorage.setItem(storageKey, "1");
   }, [purchase]);
