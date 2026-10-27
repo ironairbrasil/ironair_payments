@@ -262,11 +262,14 @@ export function nextBaseOrderNumber(orders) {
   return Math.max(...numbers) + 1;
 }
 
-export function baseSyncClaimWhere(mappedOrder, { force = false, staleProcessingBefore } = {}) {
+export function baseSyncClaimWhere(
+  mappedOrder,
+  { force = false, staleProcessingBefore, allowPendingPayment = false } = {},
+) {
   const staleBefore = staleProcessingBefore || new Date(Date.now() - 5 * 60 * 1000);
   return {
     id: mappedOrder.id,
-    status: "PAID",
+    status: allowPendingPayment ? { in: ["PENDING", "PAID"] } : "PAID",
     baseOrderId: null,
     OR: force
       ? [
@@ -298,7 +301,10 @@ async function createSequencedBaseOrder(payload, paymentId) {
   }, { maxWait: 20000, timeout: 30000 });
 }
 
-export async function syncPaidOrderToBase(mappedOrder, { customer, payment, event, force = false }) {
+export async function syncPaidOrderToBase(
+  mappedOrder,
+  { customer, payment, event, force = false, allowPendingPayment = false },
+) {
   const config = getBaseConfig();
   if (!config.enabled) {
     await prisma.asaasShopifyOrder.update({
@@ -314,7 +320,11 @@ export async function syncPaidOrderToBase(mappedOrder, { customer, payment, even
 
   const staleProcessingBefore = new Date(Date.now() - 5 * 60 * 1000);
   const claim = await prisma.asaasShopifyOrder.updateMany({
-    where: baseSyncClaimWhere(mappedOrder, { force, staleProcessingBefore }),
+    where: baseSyncClaimWhere(mappedOrder, {
+      force,
+      staleProcessingBefore,
+      allowPendingPayment,
+    }),
     data: { baseSyncStatus: "PROCESSING", baseSyncEvent: event, baseSyncError: null },
   });
   if (claim.count !== 1) {

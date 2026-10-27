@@ -523,6 +523,22 @@ export async function createIronAirCheckout(payload, options = {}) {
       data: { status: "COMPLETED", failureReason: null },
     });
 
+    // A settled Pix charge is immutable in Base ERP. Create and link the Base
+    // sales order while the Asaas charge is still pending; when the webhook
+    // confirms payment the existing Base order is reused instead of trying to
+    // edit an already received charge.
+    if (
+      normalizedPayload.paymentMethod === "PIX" &&
+      !isAsaasPaymentApproved(payment)
+    ) {
+      await syncPaidOrderToBase(mappedOrder, {
+        customer: asaasResult.asaasCustomer,
+        payment,
+        event: "PAYMENT_CREATED_DIRECT",
+        allowPendingPayment: true,
+      });
+    }
+
     // Credit-card payments can be approved before the asynchronous webhook
     // reaches us. Finish the order here as well so the Correios pre-postage is
     // not dependent on the timing of that webhook.

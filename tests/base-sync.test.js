@@ -123,6 +123,15 @@ test("forced Base sync retry can reclaim failed orders but not recent processing
   });
 });
 
+test("pending Pix can claim Base sync before the Asaas charge becomes immutable", () => {
+  const where = baseSyncClaimWhere(
+    { id: 42 },
+    { allowPendingPayment: true },
+  );
+
+  assert.deepEqual(where.status, { in: ["PENDING", "PAID"] });
+});
+
 test("links paid Pix Base orders without editing or duplicating the Asaas charge", () => {
   const financial = baseFinancialPayload(
     { value: 1349.1, discountAmount: 149.9, shippingPrice: 0 },

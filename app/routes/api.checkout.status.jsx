@@ -36,7 +36,6 @@ export async function loader({ request }) {
 
   const mappedOrder = await prisma.asaasShopifyOrder.findUnique({
     where: { asaasPaymentId: paymentId },
-    select: { externalReference: true },
   });
   if (!mappedOrder || !externalReference || mappedOrder.externalReference !== externalReference) {
     return checkoutJson({ success: false, error: "Payment not found." }, { status: 404 });
@@ -45,6 +44,16 @@ export async function loader({ request }) {
   try {
     const payment = await getNormalizedAsaasPayment(paymentId);
     const paid = isAsaasPaymentApproved(payment);
+
+    if (!paid && String(payment.billingType || "").toUpperCase() === "PIX") {
+      const asaasCustomer = await getAsaasCustomer(payment.customer);
+      await syncPaidOrderToBase(mappedOrder, {
+        customer: asaasCustomer,
+        payment,
+        event: "PAYMENT_STATUS_PENDING_BASE_SYNC",
+        allowPendingPayment: true,
+      });
+    }
 
     if (paid) {
       const asaasCustomer = await getAsaasCustomer(payment.customer);

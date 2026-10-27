@@ -597,6 +597,24 @@ export async function handleAsaasWebhook(payload) {
       : paymentSnapshot;
 
     if (!isAsaasPaymentApproved(asaasPayment)) {
+      if (String(asaasPayment?.billingType || "").toUpperCase() === "PIX") {
+        const pendingOrder = await prisma.asaasShopifyOrder.findUnique({
+          where: { asaasPaymentId: paymentId },
+        });
+
+        if (pendingOrder) {
+          const pendingCustomerId =
+            asaasPayment?.customer ?? payment?.customer ?? checkout?.customer;
+          const pendingCustomer = await getAsaasCustomer(pendingCustomerId);
+          await syncPaidOrderToBase(pendingOrder, {
+            customer: pendingCustomer,
+            payment: asaasPayment,
+            event: `${event}_PENDING_BASE_SYNC`,
+            allowPendingPayment: true,
+          });
+        }
+      }
+
       return { ...result, status: currentStatus };
     }
 
