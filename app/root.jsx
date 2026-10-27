@@ -158,6 +158,10 @@ export default function App() {
               data-utmify-prevent-xcod-sck=""
               data-utmify-prevent-subids=""
             />
+            <script
+              async
+              src="https://ironair-hub-v4.vercel.app/api/tracking/script"
+            />
           </>
         ) : null}
       </head>
