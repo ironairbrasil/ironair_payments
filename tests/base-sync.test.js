@@ -12,6 +12,7 @@ import {
   baseSalesOrderPayload,
   baseSyncClaimWhere,
   billingType,
+  canCreateSettledPixOrderWithoutEditingCharge,
   customerPayload,
   firstInstallmentDueDate,
   mappedProduct,
@@ -130,6 +131,23 @@ test("pending Pix can claim Base sync before the Asaas charge becomes immutable"
   );
 
   assert.deepEqual(where.status, { in: ["PENDING", "PAID"] });
+});
+
+test("settled Pix falls back to an order-only repair for the Base immutable-charge error", () => {
+  assert.equal(
+    canCreateSettledPixOrderWithoutEditingCharge(
+      { billingType: "PIX", status: "RECEIVED" },
+      new Error("Só é possível editar cobranças pendentes ou vencidas."),
+    ),
+    true,
+  );
+  assert.equal(
+    canCreateSettledPixOrderWithoutEditingCharge(
+      { billingType: "CREDIT_CARD", status: "RECEIVED" },
+      new Error("Só é possível editar cobranças pendentes ou vencidas."),
+    ),
+    false,
+  );
 });
 
 test("links paid Pix Base orders without editing or duplicating the Asaas charge", () => {

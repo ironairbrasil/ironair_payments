@@ -285,7 +285,7 @@ export function baseSyncClaimWhere(
   };
 }
 
-async function createSequencedBaseOrder(payload, paymentId) {
+async function createSequencedBaseOrder(payload, paymentId, idempotencySuffix = "") {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BASE_ORDER_SEQUENCE_LOCK_ID})`;
     const externalReference = `asaas:${paymentId}`;
@@ -296,9 +296,22 @@ async function createSequencedBaseOrder(payload, paymentId) {
     const nextNumber = nextBaseOrderNumber(await getBaseOrders({ page: "0", size: "100" }));
     return createBaseOrder(
       nextNumber ? { ...payload, number: nextNumber } : payload,
-      `asaas-payment-${paymentId}`,
+      `asaas-payment-${paymentId}${idempotencySuffix}`,
     );
   }, { maxWait: 20000, timeout: 30000 });
+}
+
+export function canCreateSettledPixOrderWithoutEditingCharge(payment, error) {
+  const settledPix =
+    String(payment?.billingType || "").toUpperCase() === "PIX" &&
+    ["CONFIRMED", "RECEIVED"].includes(
+      String(payment?.status || "").toUpperCase(),
+    );
+  const message = error instanceof Error ? error.message : String(error || "");
+
+  return settledPix && message.includes(
+    "Só é possível editar cobranças pendentes ou vencidas",
+  );
 }
 
 export async function syncPaidOrderToBase(
@@ -347,7 +360,24 @@ export async function syncPaidOrderToBase(
     const issueDate = baseOrderIssueDate(mappedOrder, payment);
 
     const payload = baseSalesOrderPayload({ issueDate, baseCustomerId, bankId: config.bankId, payment, financial });
-    const order = existing[0] || await createSequencedBaseOrder(payload, payment.id);
+    let order = existing[0];
+    if (!order) {
+      try {
+        order = await createSequencedBaseOrder(payload, payment.id);
+      } catch (error) {
+        if (!canCreateSettledPixOrderWithoutEditingCharge(payment, error)) {
+          throw error;
+        }
+
+        const orderOnlyPayload = { ...payload };
+        delete orderOnlyPayload.orderPayments;
+        order = await createSequencedBaseOrder(
+          orderOnlyPayload,
+          payment.id,
+          "-settled-pix-order-only",
+        );
+      }
+    }
 
     await prisma.asaasShopifyOrder.update({
       where: { id: mappedOrder.id },
